@@ -1,0 +1,94 @@
+.veil-controls{
+  display: flex;
+  flex-direction: rows;
+  padding-top: 1rem;
+}
+
+.veil-button{
+
+  align-items: center;  
+  width: 101px;                                             
+  /*padding: 0.75rem 1.5rem; */ 
+   
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;  
+  gap: 2px;      
+  margin-right: 8px;            
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;                     
+
+}
+
+.veil-button-secondary{
+  
+  align-items: center;  
+  width: 101px;                                                 
+  /*padding: 0.75rem 1.5rem;*/
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%); 
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;  
+  margin-right: 234px;     
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;          
+  
+  
+}
+
+.veil-button-tertiary{
+
+  align-items: center;
+  width: 101px;          
+  height: 38px;                                      
+  /*padding: 0.75rem 1.5rem;*/
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%); 
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;  
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;                                       
+
+}
+
+
+
+.veil-button:hover {
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%);  
+  transform: translateY(-1px);  
+  box-shadow: 0 4px 12px rgba(180, 40, 11, 0.3);                              
+             
+}
+
+.veil-button-secondary:hover {
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%);  
+  transform: translateY(-1px);       
+  box-shadow: 0 4px 12px rgba(180, 40, 11, 0.3);                                    
+}
+
+.veil-button-tertiary:hover {
+  background: linear-gradient(135deg, #B4280B 0%, #8a1f07 100%);  
+  transform: translateY(-1px);  
+  box-shadow: 0 4px 12px rgba(180, 40, 11, 0.3);                              
+          
+}
+
+
+.veil-shortcut{
+  font-size: smaller;
+  color: #f9d025;
+  margin: auto;
+  
+  
+  
+}

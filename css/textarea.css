@@ -1,0 +1,36 @@
+
+.veil-input-section{
+  padding: 1.5rem;
+}
+
+.veil-textarea {
+  width: 635px;
+  flex: 1;
+  min-height: 300px;
+  line-height: 1.6;
+  
+  padding: 1.5rem;
+  background: rgba(26, 26, 26, 0.9);
+  border: 2px solid #B4280B;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  
+  resize: none;
+  outline: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+/*textarea hover*/
+.veil-textarea:hover {
+  border-color:  #f9d025;
+}
+
+.veil-textarea:focus{
+    border-color: #B4280B;
+    background: #1a1a1a;
+}
+

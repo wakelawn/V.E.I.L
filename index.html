@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel = "stylesheet" href = "css/dashboard.css">
+    <link rel = "stylesheet" href = "css/header.css">
+    <link rel = "stylesheet" href = "css/mainpartition.css">
+    <link rel = "stylesheet" href = "css/button.css">
+    <link rel = "stylesheet" href = "css/textarea.css">
+    <link rel = "stylesheet" href = "css/tabs.css">
+    <link rel = "stylesheet" href = "css/matricscard.css">
+    <link rel = "stylesheet" href = "css/tables.css">
+    <link rel = "stylesheet" href = "css/executionplan.css">
+    <title>VEIL</title>
+    
+    
+    
+</head>
+<body>
+    <div class="veil-container">
+        <div class="veil-header">
+            <div class="veil-logo">VEIL</div>
+            <div class="veil-status">
+                <div class="veil-status-dot"></div>
+            <span>Engine Ready</span>
+            </div>
+            
+        </div>
+
+        <div class="veil-main">
+            <div class="veil-panel veil-left">
+                <div class="veil-panel-header">QUERY INPUT</div>
+                <div class="veil-input-section">
+                    <textarea class="veil-textarea"></textarea>
+                    <div class="veil-controls">
+                        <button class="veil-button">Analyze</button>
+                        <button class="veil-button-secondary">Optimize</button>
+                        <button class="veil-button-tertiary">Clear</button>
+                        <span class="veil-shortcut">ctrl+enter</span>
+                    </div>
+        
+                </div>
+
+            </div>
+             <div class="veil-panel veil-right">
+                <div class="veil-panel-header">ANALYSIS RESULTS</div>
+
+                <div class="veil-tabs">
+                    <button class="veil-tab active" onclick="switchTab(event,'metrics')">MATRICS</button><!--changed here-->
+                    <button class="veil-tab" onclick="switchTab(event,'output')">OUTPUT</button>
+                    <button class="veil-tab" onclick="switchTab(event,'plan')">EXECUTION PLANE</button>
+                </div>
+
+                <div class="veil-right-content">
+                    <div id="metrics" class="veil-tab-content active">
+                        <div class="veil-metrics">
+                            <div class="veil-metrics-card">EXECUTION TIME
+                                <div class="veil-metrics-value">324ms</div>
+                            </div>
+                            <div class="veil-metrics-card">ROWS ANALYZED
+                                <div class="veil-metrics-value">12,847</div>
+                            </div>
+                            <div class="veil-metrics-card">INDEX
+                                <div class="veil-metrics-value">85%</div>
+                            </div>
+                            <div class="veil-metrics-card">ROWS
+                                <div class="veil-metrics-value">247</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(160, 215, 148, 0.1);; border-radius: 6px; border-left: 3px solid #a0d794;">
+                        <div style="font-size: 12px; color: #a0d794; font-weight: 600;">✓ Query Optimized</div>
+                        <div style="font-size: 11px; color: #888; margin-top: 6px;">Good index usage detected. Consider adding covering index on orders(user_id, id).</div>
+                    </div>
+                    </div>
+
+                    
+                    
+                    <div id="output" class="veil-tab-content">
+                        <table class="veil-output-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>NAME</th>
+                                    <th>ORDER_COUNT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1542</td>
+                                    <td>Sarah Johnson</td>
+                                    <td>19</td>
+                                </tr>
+                                <tr>
+                                    <td>2104</td>
+                                    <td>Emma Williams</td>
+                                    <td>17</td>
+                                </tr>
+                                <tr>
+                                    <td>1203</td>
+                                    <td>David Martinez</td>
+                                    <td>14</td>
+                                </tr>
+                                <tr>
+                                    <td>2847</td>
+                                    <td>Lisa Anderson</td>
+                                    <td>12</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="plan" class="veil-tab-content">
+                        <div class="veil-plan-node">
+                            
+            <div class="veil-plan-node-title">↳ LIMIT (100)</div>
+            <div class="veil-plan-node-detail">Cost: 524.50..524.75</div>
+          </div>
+          <div class="veil-plan-node">
+            <div class="veil-plan-node-title">  ↳ SORT (order_count DESC)</div>
+            <div class="veil-plan-node-detail">Cost: 524.50..524.75 | Rows: 247</div>
+          </div>
+          <div class="veil-plan-node">
+            <div class="veil-plan-node-title">    ↳ GROUP AGGREGATE (COUNT)</div>
+            <div class="veil-plan-node-detail">Cost: 123.45..456.78 | Rows: 247</div>
+          </div>
+          <div class="veil-plan-node">
+            <div class="veil-plan-node-title">      ↳ NESTED LOOP LEFT JOIN</div>
+            <div class="veil-plan-node-detail">Cost: 45.20..123.45 | Rows: 12847</div>
+          </div>
+          <div class="veil-plan-node">
+            <div class="veil-plan-node-title">        ↳ SEQ SCAN users</div>
+            <div class="veil-plan-node-detail">Cost: 12.50..45.20 | Rows: 1200</div>
+          </div>
+          <div class="veil-plan-node">
+            <div class="veil-plan-node-title">        ↳ INDEX SCAN orders (user_id)</div>
+            <div class="veil-plan-node-detail">Cost: 10.10..30.50 | Rows: avg 10.7</div>
+          </div>
+        </div>
+
+        
+                        
+                
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/analyzer.js"></script>
+</body>
+</html>

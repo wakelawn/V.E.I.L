@@ -1,0 +1,47 @@
+.veil-tabs {
+  display: flex;                                               
+  border-bottom: 1px solid #b4280b;         
+  padding: 0 1.5rem;
+}
+
+.veil-tab {
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  position: relative;                                         
+}
+
+.veil-tab:hover {
+  color: #999;                                               
+                                                 
+}
+
+.veil-tab.active {
+  color: #f9d025;     
+}                                        
+
+.veil-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #f9d025;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  
+}
+
+.veil-tab.active::after {
+  opacity: 1;
+}
+
+.veil-tab-content{
+  display: none;
+}
+.veil-tab-content.active{
+  display: block;
+}
