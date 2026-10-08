@@ -31,3 +31,42 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment / Secrets ###
+.env
+.env.*
+!.env.example
+
+### Spring Boot local configuration ###
+src/main/resources/application-local.properties
+src/main/resources/application-*.local.properties
+
+### Java ###
+*.class
+hs_err_pid*
+replay_pid*
+
+### Logs ###
+*.log
+
+### Frontend / Node ###
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Database backups ###
+*.dump
+*.backup
+backups/
+
+### OS ###
+.DS_Store
+Thumbs.db
+desktop.ini
