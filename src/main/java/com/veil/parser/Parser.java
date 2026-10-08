@@ -3,6 +3,7 @@ package com.veil.parser;
 import com.veil.ast.SelectStatement;
 import com.veil.ast.Statement;
 import com.veil.ast.TableReference;
+import com.veil.ast.WhereCondition;
 import com.veil.lexer.Token;
 import com.veil.lexer.TokenType;
 
@@ -28,7 +29,20 @@ public class Parser {
 
 		String tableName = consume(TokenType.IDENTIFIER).getValue();
 
-		return new SelectStatement(columns, new TableReference(tableName));
+		WhereCondition whereCondition = null;
+
+		if (match(TokenType.WHERE)) {
+			whereCondition = parseWhereCondition();
+		}
+
+		// Optional semicolon
+		match(TokenType.SEMICOLON);
+
+		// Make sure nothing is left unparsed
+		consume(TokenType.EOF);
+
+		return new SelectStatement(columns, new TableReference(tableName),
+				whereCondition);
 	}
 
 	private List<String> parseColumns() {
@@ -51,6 +65,28 @@ public class Parser {
 		}
 
 		return columns;
+	}
+
+	private WhereCondition parseWhereCondition() {
+
+		String column = consume(TokenType.IDENTIFIER).getValue();
+
+		String operator = consume(TokenType.EQUALS).getValue();
+
+		Token valueToken = peek();
+
+		if (valueToken.getType() != TokenType.NUMBER
+				&& valueToken.getType() != TokenType.STRING
+				&& valueToken.getType() != TokenType.IDENTIFIER) {
+
+			throw new ParseException(
+					"Expected value in WHERE condition but found "
+							+ valueToken.getType());
+		}
+
+		position++;
+
+		return new WhereCondition(column, operator, valueToken.getValue());
 	}
 
 	private Token consume(TokenType expected) {

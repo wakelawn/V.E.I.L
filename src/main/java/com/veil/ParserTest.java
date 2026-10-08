@@ -12,7 +12,8 @@ public class ParserTest {
 
 	public static void main(String[] args) {
 
-		String sql = "SELECT name FROM users;";
+		// String sql = "SELECT name FROM users;";
+		String sql = "SELECT name FROM projects WHERE id = 1;";
 
 		// 1. Lexing
 		Lexer lexer = new Lexer(sql);
@@ -41,5 +42,7 @@ public class ParserTest {
 		System.out.println("Table: " + select.getTable().getTableName());
 
 		System.out.println("Columns: " + select.getColumns());
+
+		System.out.println("WHERE: " + select.getWhereCondition());
 	}
 }

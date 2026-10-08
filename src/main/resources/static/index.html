@@ -1,11 +1,1148 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>V.E.I.L</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>VEIL — SQL Intelligence</title>
+
+<style>
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+:root {
+	--bg: #08090b;
+	--panel: #0f1115;
+	--panel-2: #13161b;
+	--border: #232831;
+	--text: #f2f4f7;
+	--muted: #8d95a1;
+	--accent: #ffffff;
+	--success: #7ee787;
+	--warning: #f2cc60;
+	--danger: #ff7b72;
+}
+
+body {
+	min-height: 100vh;
+	background: var(--bg);
+	color: var(--text);
+	font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+		sans-serif;
+}
+
+button, textarea {
+	font: inherit;
+}
+
+/* =========================
+           LAYOUT
+        ========================= */
+.app {
+	display: grid;
+	grid-template-columns: 240px 1fr;
+	min-height: 100vh;
+}
+
+/* =========================
+           SIDEBAR
+        ========================= */
+.sidebar {
+	border-right: 1px solid var(--border);
+	background: #0a0c0f;
+	padding: 24px 16px;
+}
+
+.brand {
+	padding: 8px 12px 30px;
+}
+
+.brand-title {
+	font-size: 27px;
+	font-weight: 800;
+	letter-spacing: 7px;
+}
+
+.brand-subtitle {
+	margin-top: 7px;
+	font-size: 10px;
+	line-height: 1.5;
+	color: var(--muted);
+	letter-spacing: 1.3px;
+}
+
+.nav-section {
+	margin-top: 18px;
+}
+
+.nav-title {
+	padding: 0 12px 8px;
+	color: #616975;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+}
+
+.nav-item {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	color: #abb2bc;
+	text-align: left;
+	padding: 11px 12px;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 13px;
+	margin-bottom: 3px;
+}
+
+.nav-item:hover, .nav-item.active {
+	background: #171a20;
+	color: white;
+}
+
+.sidebar-status {
+	position: absolute;
+	bottom: 22px;
+	left: 17px;
+	right: 17px;
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--panel);
+}
+
+.status-line {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.status-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--success);
+}
+
+/* =========================
+           MAIN
+        ========================= */
+.main {
+	min-width: 0;
+}
+
+.topbar {
+	height: 72px;
+	border-bottom: 1px solid var(--border);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 30px;
+}
+
+.page-title {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.page-description {
+	margin-top: 3px;
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.connection {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	background: #101318;
+	border: 1px solid var(--border);
+	border-radius: 20px;
+	font-size: 12px;
+	color: #bdc4cd;
+}
+
+.content {
+	padding: 30px;
+	max-width: 1500px;
+}
+
+/* =========================
+           EDITOR
+        ========================= */
+.editor-card {
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--panel);
+	overflow: hidden;
+}
+
+.editor-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 14px 17px;
+	border-bottom: 1px solid var(--border);
+}
+
+.editor-label {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	color: #b9c0c9;
+}
+
+.editor-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.small-btn {
+	padding: 7px 10px;
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	background: #15181d;
+	color: #aeb5bf;
+	cursor: pointer;
+	font-size: 11px;
+}
+
+.small-btn:hover {
+	color: white;
+	border-color: #414751;
+}
+
+textarea {
+	width: 100%;
+	height: 215px;
+	resize: vertical;
+	padding: 20px;
+	border: 0;
+	outline: none;
+	background: #0a0c0f;
+	color: #e7eaf0;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 14px;
+	line-height: 1.7;
+}
+
+.editor-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 13px 17px;
+	border-top: 1px solid var(--border);
+}
+
+.hint {
+	color: #68707b;
+	font-size: 11px;
+}
+
+.analyze-btn {
+	border: none;
+	background: white;
+	color: black;
+	padding: 10px 18px;
+	border-radius: 8px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.analyze-btn:hover {
+	opacity: .85;
+}
+
+/* =========================
+           METRICS
+        ========================= */
+.metrics {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 14px;
+	margin-top: 18px;
+}
+
+.metric {
+	border: 1px solid var(--border);
+	background: var(--panel);
+	border-radius: 12px;
+	padding: 17px;
+}
+
+.metric-label {
+	color: var(--muted);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 1.3px;
+}
+
+.metric-value {
+	margin-top: 9px;
+	font-size: 22px;
+	font-weight: 700;
+}
+
+/* =========================
+           RESULTS
+        ========================= */
+.results {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 14px;
+	margin-top: 18px;
+}
+
+.card {
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	overflow: hidden;
+}
+
+.card.full {
+	grid-column: 1/-1;
+}
+
+.card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 17px;
+	border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: .8px;
+}
+
+.badge {
+	font-size: 9px;
+	color: var(--muted);
+	border: 1px solid var(--border);
+	padding: 4px 7px;
+	border-radius: 5px;
+}
+
+.card-body {
+	padding: 17px;
+}
+
+.code-output {
+	background: #090b0e;
+	border: 1px solid #1b1f25;
+	border-radius: 8px;
+	padding: 14px;
+	min-height: 170px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	font-family: Consolas, Monaco, monospace;
+	color: #bbc2cc;
+	font-size: 12px;
+	line-height: 1.7;
+}
+
+/* =========================
+           INFO GRID
+        ========================= */
+.info-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 12px;
+}
+
+.info-box {
+	padding: 13px;
+	border: 1px solid var(--border);
+	background: var(--panel-2);
+	border-radius: 9px;
+}
+
+.info-label {
+	color: #68707b;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+.info-value {
+	margin-top: 6px;
+	font-size: 13px;
+	color: #d8dde5;
+}
+
+/* =========================
+           RECOMMENDATIONS
+        ========================= */
+.recommendation {
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	background: var(--panel-2);
+	padding: 14px;
+	margin-bottom: 9px;
+}
+
+.recommendation:last-child {
+	margin-bottom: 0;
+}
+
+.recommendation-title {
+	font-size: 11px;
+	font-weight: 700;
+	margin-bottom: 5px;
+}
+
+.recommendation-text {
+	color: #999fa8;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+/* =========================
+           DATABASE
+        ========================= */
+.database-list {
+	display: grid;
+	gap: 8px;
+}
+
+.db-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 11px 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--panel-2);
+}
+
+.db-name {
+	font-family: Consolas, monospace;
+	font-size: 12px;
+	color: #d7dce4;
+}
+
+.db-type {
+	color: #727a85;
+	font-size: 10px;
+}
+
+.empty {
+	color: #69717c;
+	font-size: 12px;
+}
+
+.error {
+	color: var(--danger);
+	font-size: 12px;
+}
+
+/* =========================
+           RESPONSIVE
+        ========================= */
+@media ( max-width : 1000px) {
+	.app {
+		grid-template-columns: 1fr;
+	}
+	.sidebar {
+		display: none;
+	}
+	.metrics {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.results {
+		grid-template-columns: 1fr;
+	}
+	.card.full {
+		grid-column: auto;
+	}
+}
+
+@media ( max-width : 600px) {
+	.content {
+		padding: 15px;
+	}
+	.topbar {
+		padding: 0 15px;
+	}
+	.metrics {
+		grid-template-columns: 1fr;
+	}
+	.info-grid {
+		grid-template-columns: 1fr;
+	}
+}
+</style>
 </head>
+
 <body>
-	<h1>VEIL</h1>
-	<p>Versatile Execution & Intelligence Layer</p>
+
+	<div class="app">
+
+		<!-- SIDEBAR -->
+
+		<aside class="sidebar">
+
+			<div class="brand">
+				<div class="brand-title">VEIL</div>
+
+				<div class="brand-subtitle">
+					VERSATILE EXECUTION<br> & INTELLIGENCE LAYER
+				</div>
+			</div>
+
+			<div class="nav-section">
+
+				<div class="nav-title">Workspace</div>
+
+				<button class="nav-item active">Query Analyzer</button>
+
+				<button class="nav-item">Execution Plans</button>
+
+				<button class="nav-item">Index Analysis</button>
+
+				<button class="nav-item">Query History</button>
+
+			</div>
+
+			<div class="nav-section">
+
+				<div class="nav-title">Database</div>
+
+				<button class="nav-item" onclick="loadDatabase()">Database
+					Status</button>
+
+			</div>
+
+			<div class="sidebar-status">
+
+				<div class="status-line">
+					<span class="status-dot"></span> PostgreSQL connected
+				</div>
+
+			</div>
+
+		</aside>
+
+
+		<!-- MAIN -->
+
+		<main class="main">
+
+			<header class="topbar">
+
+				<div>
+					<div class="page-title">SQL Query Analyzer</div>
+
+					<div class="page-description">Parse, inspect and analyze SQL
+						queries</div>
+				</div>
+
+				<div class="connection">
+					<span class="status-dot"></span> PostgreSQL
+				</div>
+
+			</header>
+
+
+			<section class="content">
+
+
+				<!-- QUERY EDITOR -->
+
+				<div class="editor-card">
+
+					<div class="editor-header">
+
+						<div class="editor-label">SQL INPUT</div>
+
+						<div class="editor-actions">
+
+							<button class="small-btn" onclick="loadExample()">
+								Example</button>
+
+							<button class="small-btn" onclick="clearQuery()">Clear</button>
+
+						</div>
+
+					</div>
+
+
+					<textarea id="sql">SELECT name FROM users WHERE id = 10;</textarea>
+
+
+					<div class="editor-footer">
+
+						<div class="hint">Ctrl + Enter to analyze</div>
+
+						<button class="analyze-btn" onclick="analyzeQuery()">
+							Analyze Query</button>
+
+					</div>
+
+				</div>
+
+
+				<!-- METRICS -->
+
+				<div class="metrics">
+
+					<div class="metric">
+
+						<div class="metric-label">DATABASE</div>
+
+						<div class="metric-value" id="databaseMetric">—</div>
+
+					</div>
+
+
+					<div class="metric">
+
+						<div class="metric-label">TABLE</div>
+
+						<div class="metric-value" id="tableMetric">—</div>
+
+					</div>
+
+
+					<div class="metric">
+
+						<div class="metric-label">COLUMNS</div>
+
+						<div class="metric-value" id="columnsMetric">—</div>
+
+					</div>
+
+
+					<div class="metric">
+
+						<div class="metric-label">TOKENS</div>
+
+						<div class="metric-value" id="tokensMetric">—</div>
+
+					</div>
+
+				</div>
+
+
+				<!-- RESULT CARDS -->
+
+				<div class="results">
+
+
+					<!-- TOKENS -->
+
+					<div class="card">
+
+						<div class="card-header">
+
+							<div class="card-title">LEXER OUTPUT</div>
+
+							<div class="badge">TOKENS</div>
+
+						</div>
+
+						<div class="card-body">
+
+							<div class="code-output" id="tokens">Run analysis to see
+								lexer output.</div>
+
+						</div>
+
+					</div>
+
+
+					<!-- AST -->
+
+					<div class="card">
+
+						<div class="card-header">
+
+							<div class="card-title">ABSTRACT SYNTAX TREE</div>
+
+							<div class="badge">AST</div>
+
+						</div>
+
+						<div class="card-body">
+
+							<div class="code-output" id="ast">Run analysis to see AST.
+							</div>
+
+						</div>
+
+					</div>
+
+
+					<!-- QUERY INFO -->
+
+					<div class="card">
+
+						<div class="card-header">
+
+							<div class="card-title">QUERY INFORMATION</div>
+
+						</div>
+
+						<div class="card-body">
+
+							<div class="info-grid">
+
+								<div class="info-box">
+
+									<div class="info-label">Table</div>
+
+									<div class="info-value" id="infoTable">—</div>
+
+								</div>
+
+
+								<div class="info-box">
+
+									<div class="info-label">Columns</div>
+
+									<div class="info-value" id="infoColumns">—</div>
+
+								</div>
+
+							</div>
+
+						</div>
+
+					</div>
+
+
+					<!-- RECOMMENDATIONS -->
+
+					<div class="card">
+
+						<div class="card-header">
+
+							<div class="card-title">OPTIMIZATION ANALYSIS</div>
+
+							<div class="badge">VEIL</div>
+
+						</div>
+
+						<div class="card-body" id="recommendations">
+
+							<div class="empty">Run an analysis to see recommendations.
+							</div>
+
+						</div>
+
+					</div>
+
+
+					<!-- DATABASE -->
+
+					<div class="card full">
+
+						<div class="card-header">
+
+							<div class="card-title">POSTGRESQL DATABASE</div>
+
+							<button class="small-btn" onclick="loadDatabase()">
+								Refresh</button>
+
+						</div>
+
+						<div class="card-body">
+
+							<div id="databaseContent" class="database-list">
+
+								<div class="empty">Click Refresh to load database
+									information.</div>
+
+							</div>
+
+						</div>
+
+					</div>
+
+				</div>
+
+			</section>
+
+		</main>
+
+	</div>
+
+
+	<script>
+
+    /* ==========================================
+       QUERY ANALYSIS
+    ========================================== */
+
+    async function analyzeQuery() {
+
+        const sql =
+            document.getElementById("sql").value.trim();
+
+        if (!sql) {
+            alert("Enter a SQL query first.");
+            return;
+        }
+
+        const button =
+            document.querySelector(".analyze-btn");
+
+        button.textContent = "Analyzing...";
+        button.disabled = true;
+
+        try {
+
+            const response = await fetch(
+                "/api/analyze",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        sql: sql
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Backend returned HTTP " +
+                    response.status
+                );
+            }
+
+            const data =
+                await response.json();
+
+            /* Metrics */
+
+            document.getElementById(
+                "tableMetric"
+            ).textContent =
+                data.table || "—";
+
+            document.getElementById(
+                "columnsMetric"
+            ).textContent =
+                data.columns
+                    ? data.columns.length
+                    : "0";
+
+            document.getElementById(
+                "tokensMetric"
+            ).textContent =
+                data.tokens
+                    ? data.tokens.length
+                    : "0";
+
+
+            /* Tokens */
+
+            document.getElementById(
+                "tokens"
+            ).textContent =
+                data.tokens
+                    ? data.tokens.join("\n")
+                    : "No tokens returned.";
+
+
+            /* AST */
+
+            document.getElementById(
+                "ast"
+            ).textContent =
+                data.ast ||
+                "No AST returned.";
+
+
+            /* Query info */
+
+            document.getElementById(
+                "infoTable"
+            ).textContent =
+                data.table || "—";
+
+            document.getElementById(
+                "infoColumns"
+            ).textContent =
+                data.columns
+                    ? data.columns.join(", ")
+                    : "—";
+
+
+            /* Recommendations */
+
+            const container =
+                document.getElementById(
+                    "recommendations"
+                );
+
+            container.innerHTML = "";
+
+            if (
+                !data.recommendations ||
+                data.recommendations.length === 0
+            ) {
+
+                container.innerHTML = `
+                    <div class="empty">
+                        No recommendations returned.
+                    </div>
+                `;
+
+            } else {
+
+                data.recommendations.forEach(
+                    (recommendation, index) => {
+
+                        const div =
+                            document.createElement("div");
+
+                        div.className =
+                            "recommendation";
+
+                        div.innerHTML = `
+                            <div class="recommendation-title">
+                                Recommendation ${index + 1}
+                            </div>
+
+                            <div class="recommendation-text">
+                                ${escapeHtml(recommendation)}
+                            </div>
+                        `;
+
+                        container.appendChild(div);
+                    }
+                );
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            document.getElementById(
+                "recommendations"
+            ).innerHTML = `
+                <div class="error">
+                    ${escapeHtml(error.message)}
+                </div>
+            `;
+
+        } finally {
+
+            button.textContent =
+                "Analyze Query";
+
+            button.disabled = false;
+        }
+    }
+
+
+    /* ==========================================
+       DATABASE
+    ========================================== */
+
+    async function loadDatabase() {
+
+        const container =
+            document.getElementById(
+                "databaseContent"
+            );
+
+        container.innerHTML =
+            `<div class="empty">Loading database...</div>`;
+
+        try {
+
+            const response =
+                await fetch("/api/database");
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "Could not connect to database API"
+                );
+            }
+
+            const data =
+                await response.json();
+
+
+            /* Database metric */
+
+            document.getElementById(
+                "databaseMetric"
+            ).textContent =
+                data.database || "—";
+
+
+            container.innerHTML = "";
+
+
+            /* Tables */
+
+            if (data.tables) {
+
+                data.tables.forEach(table => {
+
+                    const row =
+                        document.createElement("div");
+
+                    row.className = "db-row";
+
+                    row.innerHTML = `
+                        <span class="db-name">
+                            ${escapeHtml(table.table_name)}
+                        </span>
+
+                        <span class="db-type">
+                            TABLE
+                        </span>
+                    `;
+
+                    container.appendChild(row);
+                });
+
+            }
+
+
+            /* Indexes */
+
+            if (data.indexes) {
+
+                data.indexes.forEach(index => {
+
+                    const row =
+                        document.createElement("div");
+
+                    row.className = "db-row";
+
+                    row.innerHTML = `
+                        <span class="db-name">
+                            ${escapeHtml(index.indexname)}
+                        </span>
+
+                        <span class="db-type">
+                            INDEX — ${escapeHtml(index.tablename)}
+                        </span>
+                    `;
+
+                    container.appendChild(row);
+                });
+
+            }
+
+
+            if (
+                !data.tables &&
+                !data.indexes
+            ) {
+
+                container.innerHTML =
+                    `<div class="empty">
+                        No database information returned.
+                    </div>`;
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            container.innerHTML = `
+                <div class="error">
+                    ${escapeHtml(error.message)}
+                </div>
+            `;
+        }
+    }
+
+
+    /* ==========================================
+       EXAMPLES
+    ========================================== */
+
+    function loadExample() {
+
+        document.getElementById("sql").value =
+            "SELECT id, name FROM users WHERE id = 10;";
+    }
+
+
+    function clearQuery() {
+
+        document.getElementById("sql").value = "";
+
+        document.getElementById(
+            "tokens"
+        ).textContent =
+            "Run analysis to see lexer output.";
+
+        document.getElementById(
+            "ast"
+        ).textContent =
+            "Run analysis to see AST.";
+
+        document.getElementById(
+            "recommendations"
+        ).innerHTML =
+            `<div class="empty">
+                Run an analysis to see recommendations.
+            </div>`;
+    }
+
+
+    /* ==========================================
+       KEYBOARD SHORTCUT
+    ========================================== */
+
+    document
+        .getElementById("sql")
+        .addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.ctrlKey &&
+                    event.key === "Enter"
+                ) {
+
+                    event.preventDefault();
+
+                    analyzeQuery();
+                }
+            }
+        );
+
+
+    /* ==========================================
+       HTML ESCAPING
+    ========================================== */
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+</script>
+
 </body>
 </html>
