@@ -6,11 +6,14 @@ public class SelectStatement implements Statement {
 
 	private final List<String> columns;
 	private final TableReference table;
+	private final WhereCondition whereCondition;
 
-	public SelectStatement(List<String> columns, TableReference table) {
+	public SelectStatement(List<String> columns, TableReference table,
+			WhereCondition whereCondition) {
 
 		this.columns = columns;
 		this.table = table;
+		this.whereCondition = whereCondition;
 	}
 
 	public List<String> getColumns() {
@@ -21,8 +24,19 @@ public class SelectStatement implements Statement {
 		return table;
 	}
 
+	public WhereCondition getWhereCondition() {
+		return whereCondition;
+	}
+
 	@Override
 	public String toString() {
-		return "SELECT " + columns + " FROM " + table;
+
+		String result = "SELECT " + columns + " FROM " + table;
+
+		if (whereCondition != null) {
+			result += " WHERE " + whereCondition;
+		}
+
+		return result;
 	}
 }
