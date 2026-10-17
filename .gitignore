@@ -70,3 +70,6 @@ backups/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+### User ###
+.github
