@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VEIL - SQL Query Analyzer & Optimization Engine | Auth</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.3);
+    }
+    .glow-cyan:focus-within {
+      box-shadow: 0 0 30px 2px rgba(6, 182, 212, 0.45);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+  <!-- Background decorative grid & glow -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-[pulseGlow_8s_ease-in-out_infinite]"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-[pulseGlow_10s_ease-in-out_infinite]"></div>
+    <div class="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="w-full max-w-md relative z-10">
+    
+    <!-- Header / Brand -->
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center p-2.5 rounded-2xl bg-slate-900/80 border border-cyan-500/30 shadow-lg shadow-cyan-950/50 mb-3 backdrop-blur-md">
+        <svg class="w-8 h-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          <path d="M12 12v7"></path>
+          <path d="M9 16l3 3 3-3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 uppercase">
+        VEIL
+      </h1>
+      <p class="text-xs uppercase tracking-widest text-slate-400 mt-1 font-mono">
+        SQL Query Analyzer & Optimization Engine
+      </p>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl glow-cyan transition-all duration-300">
+      
+      <!-- Mode & Tabs -->
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800/80">
+        <div class="flex bg-slate-950/70 p-1 rounded-xl border border-slate-800 text-xs font-medium">
+          <button id="tab-login" onclick="switchTab('login')" class="px-4 py-1.5 rounded-lg transition-all duration-200 bg-cyan-500 text-slate-950 font-semibold shadow-sm">
+            Sign In
+          </button>
+          <button id="tab-register" onclick="switchTab('register')" class="px-4 py-1.5 rounded-lg transition-all duration-200 text-slate-400 hover:text-slate-200">
+            Sign Up
+          </button>
+        </div>
+
+        <!-- Dev Mode: Mock Backend Toggle -->
+        <label class="inline-flex items-center gap-2 cursor-pointer group text-xs text-slate-400 hover:text-slate-300">
+          <input type="checkbox" id="mockModeToggle" checked class="sr-only peer">
+          <span class="text-[11px] font-mono text-slate-500 group-hover:text-slate-400 transition-colors">Mock API</span>
+          <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600 relative"></div>
+        </label>
+      </div>
+
+      <!-- Toast Notification Box -->
+      <div id="toast" class="hidden mb-4 p-3 rounded-xl text-xs font-mono border transition-all duration-200 flex items-start gap-2.5">
+        <span id="toastIcon" class="mt-0.5"></span>
+        <div class="flex-1" id="toastMessage"></div>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1.5 font-mono">
+            Username or Email
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+              </svg>
+            </span>
+            <input type="text" id="loginUsername" required placeholder="admin or query_master"
+              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors font-mono">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-medium text-slate-300 uppercase tracking-wider font-mono">Password</label>
+            <a href="#" onclick="alert('Password reset link would be emailed in production.')" class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">Forgot?</a>
+          </div>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              </svg>
+            </span>
+            <input type="password" id="loginPassword" required placeholder="••••••••••••"
+              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors font-mono">
+            <button type="button" onclick="togglePasswordVisibility('loginPassword', this)" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500 hover:text-slate-300">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="rememberMe" checked class="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900">
+            <span class="text-xs text-slate-400">Keep token active (30d)</span>
+          </label>
+        </div>
+
+        <button type="submit" id="loginSubmitBtn"
+          class="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-400 hover:to-sky-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition-all duration-200 transform active:scale-[0.98] flex items-center justify-center gap-2 text-sm mt-2">
+          <span>Authenticate to VEIL</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+        </button>
+
+        <!-- Quick Demo Credentials helper -->
+        <div class="mt-4 p-2.5 bg-slate-950/50 rounded-xl border border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between font-mono">
+          <span>Quick fill:</span>
+          <button type="button" onclick="fillDemo('admin', 'veil2025')" class="text-cyan-400 hover:underline">Admin (Full AST)</button>
+          <span class="text-slate-600">|</span>
+          <button type="button" onclick="fillDemo('developer', 'veil123')" class="text-cyan-400 hover:underline">Analyst</button>
+        </div>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3.5 hidden">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1 font-mono">Full Name</label>
+          <input type="text" id="regFullName" required placeholder="Alan Turing"
+            class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1 font-mono">Username</label>
+          <input type="text" id="regUsername" required placeholder="query_optimizer" pattern="[a-zA-Z0-9_]{3,20}" title="3-20 characters, letters, numbers, underscore"
+            class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1 font-mono">Email Address</label>
+          <input type="email" id="regEmail" required placeholder="engineer@veil.io"
+            class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1 font-mono">Password</label>
+          <div class="relative">
+            <input type="password" id="regPassword" required placeholder="Minimum 6 characters" minlength="6" oninput="checkPasswordStrength(this.value)"
+              class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2 pl-3 pr-10 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors font-mono">
+            <button type="button" onclick="togglePasswordVisibility('regPassword', this)" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+          </div>
+          <!-- Password strength bar -->
+          <div class="mt-1.5 flex items-center gap-1.5">
+            <div id="bar1" class="h-1 flex-1 bg-slate-800 rounded-full transition-all"></div>
+            <div id="bar2" class="h-1 flex-1 bg-slate-800 rounded-full transition-all"></div>
+            <div id="bar3" class="h-1 flex-1 bg-slate-800 rounded-full transition-all"></div>
+            <span id="strengthLabel" class="text-[10px] text-slate-500 font-mono pl-1">Too short</span>
+          </div>
+        </div>
+
+        <button type="submit" id="registerSubmitBtn"
+          class="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all duration-200 transform active:scale-[0.98] flex items-center justify-center gap-2 text-sm mt-3">
+          <span>Create VEIL Account</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+          </svg>
+        </button>
+      </form>
+
+    </div>
+
+    <!-- Live JWT Inspector / Session Status -->
+    <div id="tokenInspectorCard" class="mt-4 bg-slate-900/60 border border-slate-800/80 rounded-xl p-3.5 backdrop-blur-md">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-slate-400 flex items-center gap-1.5 font-mono">
+          <span id="statusIndicator" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          Status: <strong id="authStatusText" class="text-slate-300 font-normal">Unauthenticated</strong>
+        </span>
+        <button onclick="clearSession()" id="logoutBtn" class="hidden text-xs text-rose-400 hover:text-rose-300 font-mono underline">
+          Log Out
+        </button>
+      </div>
+      <div id="tokenDetails" class="hidden mt-2.5 pt-2.5 border-t border-slate-800 text-[11px] font-mono text-slate-400">
+        <div class="flex justify-between items-center text-slate-500 mb-1">
+          <span>JWT Access Token Stored (localStorage)</span>
+          <button onclick="copyToken()" class="text-cyan-400 hover:text-cyan-300">Copy</button>
+        </div>
+        <div id="tokenString" class="bg-slate-950 p-2 rounded border border-slate-800/80 text-cyan-300/80 break-all select-all max-h-16 overflow-y-auto custom-scrollbar"></div>
+      </div>
+    </div>
+
+    <!-- Footer / Project Info -->
+    <footer class="mt-6 text-center text-xs text-slate-500 font-mono">
+      <span>VEIL Engine v0.1 • Spring Boot 3 + PostgreSQL</span>
+    </footer>
+
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(mode) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      hideToast();
+
+      if (mode === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabLogin.className = 'px-4 py-1.5 rounded-lg transition-all duration-200 bg-cyan-500 text-slate-950 font-semibold shadow-sm';
+        tabRegister.className = 'px-4 py-1.5 rounded-lg transition-all duration-200 text-slate-400 hover:text-slate-200';
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabRegister.className = 'px-4 py-1.5 rounded-lg transition-all duration-200 bg-emerald-500 text-slate-950 font-semibold shadow-sm';
+        tabLogin.className = 'px-4 py-1.5 rounded-lg transition-all duration-200 text-slate-400 hover:text-slate-200';
+      }
+    }
+
+    // Password visibility toggle
+    function togglePasswordVisibility(fieldId, btn) {
+      const input = document.getElementById(fieldId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.classList.add('text-cyan-400');
+      } else {
+        input.type = 'password';
+        btn.classList.remove('text-cyan-400');
+      }
+    }
+
+    // Password strength check
+    function checkPasswordStrength(val) {
+      const b1 = document.getElementById('bar1');
+      const b2 = document.getElementById('bar2');
+      const b3 = document.getElementById('bar3');
+      const label = document.getElementById('strengthLabel');
+
+      b1.className = 'h-1 flex-1 bg-slate-800 rounded-full transition-all';
+      b2.className = 'h-1 flex-1 bg-slate-800 rounded-full transition-all';
+      b3.className = 'h-1 flex-1 bg-slate-800 rounded-full transition-all';
+
+      if (val.length === 0) {
+        label.innerText = 'Too short';
+        label.className = 'text-[10px] text-slate-500 font-mono pl-1';
+        return;
+      }
+
+      let score = 0;
+      if (val.length >= 6) score++;
+      if (/[A-Z]/.test(val) && /[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val) && val.length >= 8) score++;
+
+      if (score === 1) {
+        b1.className = 'h-1 flex-1 bg-rose-500 rounded-full transition-all';
+        label.innerText = 'Weak';
+        label.className = 'text-[10px] text-rose-400 font-mono pl-1';
+      } else if (score === 2) {
+        b1.className = 'h-1 flex-1 bg-amber-500 rounded-full transition-all';
+        b2.className = 'h-1 flex-1 bg-amber-500 rounded-full transition-all';
+        label.innerText = 'Medium';
+        label.className = 'text-[10px] text-amber-400 font-mono pl-1';
+      } else if (score >= 3) {
+        b1.className = 'h-1 flex-1 bg-emerald-500 rounded-full transition-all';
+        b2.className = 'h-1 flex-1 bg-emerald-500 rounded-full transition-all';
+        b3.className = 'h-1 flex-1 bg-emerald-500 rounded-full transition-all';
+        label.innerText = 'Strong';
+        label.className = 'text-[10px] text-emerald-400 font-mono pl-1';
+      }
+    }
+
+    // Demo credentials helper
+    function fillDemo(username, password) {
+      document.getElementById('loginUsername').value = username;
+      document.getElementById('loginPassword').value = password;
+    }
+
+    // Toast alerts
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toastMessage');
+      const icon = document.getElementById('toastIcon');
+
+      toast.className = 'mb-4 p-3 rounded-xl text-xs font-mono border transition-all duration-200 flex items-start gap-2.5';
+
+      if (type === 'success') {
+        toast.classList.add('bg-emerald-950/60', 'border-emerald-500/40', 'text-emerald-300');
+        icon.innerHTML = '✓';
+      } else if (type === 'error') {
+        toast.classList.add('bg-rose-950/60', 'border-rose-500/40', 'text-rose-300');
+        icon.innerHTML = '⚠';
+      } else {
+        toast.classList.add('bg-cyan-950/60', 'border-cyan-500/40', 'text-cyan-300');
+        icon.innerHTML = 'ℹ';
+      }
+
+      msg.innerHTML = message;
+      toast.classList.remove('hidden');
+    }
+
+    function hideToast() {
+      document.getElementById('toast').classList.add('hidden');
+    }
+
+    // Simulated JWT generation helper for demo/mock mode
+    function generateMockJwt(username, role = 'ROLE_ADMIN') {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+      const payload = btoa(JSON.stringify({
+        sub: username,
+        roles: [role],
+        project: "VEIL_SQL_OPTIMIZER",
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 86400
+      }));
+      const signature = btoa("mock_signature_veil_secret_key_2025");
+      return `${header}.${payload}.${signature}`;
+    }
+
+    // Handle Login
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const isMock = document.getElementById('mockModeToggle').checked;
+      const btn = document.getElementById('loginSubmitBtn');
+
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin h-4 w-4 text-slate-950" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Verifying SQL Engine access...</span>`;
+
+      try {
+        if (isMock) {
+          await new Promise(r => setTimeout(r, 600));
+
+          if (password.length < 4) {
+            throw new Error("Invalid credentials. Try demo credentials: admin / veil2025");
+          }
+
+          const token = generateMockJwt(username, username === 'admin' ? 'ROLE_ADMIN' : 'ROLE_ANALYST');
+          saveSession(token, username);
+          showToast(`Authenticated as <strong>${username}</strong>! JWT token created and stored.`, 'success');
+        } else {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usernameOrEmail: username, password: password })
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || 'Authentication failed. Status ' + response.status);
+          }
+
+          const data = await response.json();
+          saveSession(data.token, data.username || username);
+          showToast(`Welcome back, <strong>${data.username || username}</strong>! Redirecting to analyzer...`, 'success');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <span>Authenticate to VEIL</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>`;
+      }
+    }
+
+    // Handle Register
+    async function handleRegister(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('regFullName').value.trim();
+      const username = document.getElementById('regUsername').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const isMock = document.getElementById('mockModeToggle').checked;
+      const btn = document.getElementById('registerSubmitBtn');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span>Registering with PostgreSQL...</span>`;
+
+      try {
+        if (isMock) {
+          await new Promise(r => setTimeout(r, 600));
+          const token = generateMockJwt(username, 'ROLE_USER');
+          saveSession(token, username);
+          showToast(`Account <strong>${username}</strong> registered successfully! Logged in with JWT.`, 'success');
+          setTimeout(() => switchTab('login'), 1500);
+        } else {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fullName, username, email, password })
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || 'Registration failed');
+          }
+
+          showToast("Account created successfully! You can now log in.", 'success');
+          switchTab('login');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <span>Create VEIL Account</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+          </svg>`;
+      }
+    }
+
+    // Session Management
+    function saveSession(token, username) {
+      localStorage.setItem('veil_jwt_token', token);
+      localStorage.setItem('veil_username', username);
+      updateSessionDisplay();
+    }
+
+    function clearSession() {
+      localStorage.removeItem('veil_jwt_token');
+      localStorage.removeItem('veil_username');
+      updateSessionDisplay();
+      showToast('Session logged out and JWT token cleared.', 'info');
+    }
+
+    function copyToken() {
+      const token = localStorage.getItem('veil_jwt_token');
+      if (token) {
+        navigator.clipboard.writeText(token);
+        alert('JWT Bearer Token copied to clipboard!');
+      }
+    }
+
+    function updateSessionDisplay() {
+      const token = localStorage.getItem('veil_jwt_token');
+      const user = localStorage.getItem('veil_username');
+      const indicator = document.getElementById('statusIndicator');
+      const text = document.getElementById('authStatusText');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const details = document.getElementById('tokenDetails');
+      const tokenString = document.getElementById('tokenString');
+
+      if (token) {
+        indicator.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-500';
+        text.innerHTML = `Active (<strong class="text-emerald-400">${user || 'user'}</strong>)`;
+        logoutBtn.classList.remove('hidden');
+        details.classList.remove('hidden');
+        tokenString.innerText = token;
+      } else {
+        indicator.className = 'w-2 h-2 rounded-full bg-slate-600';
+        text.innerText = 'Unauthenticated';
+        logoutBtn.classList.add('hidden');
+        details.classList.add('hidden');
+        tokenString.innerText = '';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSessionDisplay();
+    });
+  </script>
+</body>
+</html>
