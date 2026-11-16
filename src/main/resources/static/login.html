@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VEIL &bull; Sign In</title>
+  <link rel="stylesheet" href="Css/design.css">
+  <link rel="stylesheet" href="Css/content.css">
+  <link rel="stylesheet" href="Css/connectionbar.css">
+  <link rel="stylesheet" href="Css/sidebar.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; margin: 0; }
+    body {
+      background: var(--page);
+      background-image: url(assets/bg-veil.jpeg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", Times, serif;
+    }
+    .lock {
+      position: fixed; inset: 0; z-index: 0;
+      background: rgb(16 28 18 / 55%);
+    }
+    .login-wrap {
+      position: relative; z-index: 1;
+      display: grid; place-items: center;
+      height: 100vh; width: 100vw; padding: 24px; box-sizing: border-box;
+    }
+    .login-card {
+      width: min(400px, 92vw);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 14px 40px rgb(25 42 27 / 18%);
+      overflow: hidden;
+    }
+    .login-brand { padding: 32px 24px 24px; text-align: center; }
+    .login-brand .brand-mark { font-size: 30px; line-height: 1; }
+    .login-brand .brand-name {
+      font-size: 26px; font-weight: bolder; letter-spacing: 3px; margin-top: 6px;
+    }
+    .login-brand .brand-tag { font-size: 11px; margin-top: 4px; color: var(--muted); }
+    .login-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .login-body h2 { font-size: 16px; font-weight: 650; color: var(--text); margin: 0; text-align: center; }
+    .login-body p.sub { font-size: 12px; color: var(--muted); text-align: center; margin: 0 0 4px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 11px; font-weight: 600; color: var(--muted); }
+    .field input {
+      min-width: 0; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; outline: none; color: var(--text); background: var(--surface);
+      font-family: inherit; font-size: 13px;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .pw-wrap { position: relative; display: flex; align-items: center; }
+    .pw-toggle {
+      position: absolute; right: 10px; background: none; border: 0;
+      color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px;
+    }
+    .pw-toggle:hover { color: var(--accent); }
+    .opts { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+    .remember { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; font-size: 12px; }
+    .remember input { accent-color: var(--accent); }
+    .forgot { color: var(--accent); text-decoration: none; }
+    .forgot:hover { text-decoration: underline; }
+    .btn-login {
+      width: 100%; padding: 10px 16px; border: 1px solid var(--accent);
+      border-radius: 8px; color: #ffffff; background: var(--accent);
+      font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px;
+    }
+    .btn-login:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+    .btn-login:active { transform: translateY(1px); }
+    .divider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); margin: 4px 0; }
+    .divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid var(--border); }
+    .footer { text-align: center; font-size: 12px; color: var(--muted); }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .error-msg {
+      display: none; padding: 8px 12px; border: 1px solid #e8c8c0;
+      border-radius: 8px; color: var(--bad); background: #fff8f6;
+      font-size: 12px; margin-bottom: 8px; text-align: center;
+    }
+    @media (max-width: 480px) { .login-card { width: 90vw; margin: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="lock"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-name"><span class="brand-mark">&#9660;</span> VEIL</div>
+        <div class="brand-tag">Query Intelligence Platform</div>
+      </div>
+      <div class="login-body">
+        <h2>Sign in to your account</h2>
+        <p class="sub">Enter your credentials below</p>
+        <div class="error-msg" id="loginError">Invalid email or password.</div>
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email">
+        </div>
+        <div class="field pw-wrap">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password">
+          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">&#128065;</button>
+        </div>
+        <div class="opts">
+          <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
+          <a href="#" class="forgot" id="forgotLink">Forgot password?</a>
+        </div>
+        <button class="btn-login" id="loginBtn">Sign in</button>
+        <div class="divider"><span>or continue with</span></div>
+        <div class="footer">Don't have an account? <a href="#" id="signupLink">Sign up</a></div>
+      </div>
+    </div>
+  </div>
+  <script src="JS/auth.js"></script>
+  <script>
+    document.getElementById('pwToggle').addEventListener('click', function () {
+      const inp = document.getElementById('loginPassword');
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      this.textContent = show ? '&#128066;' : '&#128065;';
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const remember = document.getElementById('rememberMe').checked;
+      window.VEILAuth.login(email, password, remember);
+    });
+    document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('rememberMe').checked;
+        window.VEILAuth.login(email, password, remember);
+      }
+    });
+    document.getElementById('forgotLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Password reset: coming soon!');
+    });
+    document.getElementById('signupLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Sign up: coming soon!');
+    });
+  </script>
+</body>
+</html>

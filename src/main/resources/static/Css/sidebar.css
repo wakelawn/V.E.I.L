@@ -1,0 +1,45 @@
+.sidebar{
+    border-right: 2px solid;
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background-image: url(../assets/bg-veil.jpeg);
+    color: white;
+}
+
+.brand{ 
+    padding: 0 8px 18px; }
+.brand-name {
+    font-size: 22px;
+    font-weight: bolder;
+    letter-spacing: 3px;
+}
+
+.brand-tag{
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  user-select: none;
+}
+.nav-item.active { border-left-style: solid; }
+.ico { width: 16px; text-align: center; }
+ 
+.side-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 8px 0;
+  border-top: 1px solid;
+}
+.side-foot-status { font-weight: 600; }
+.side-foot-name { font-size: 11px; margin-top: 2px; }
+ 
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.off { opacity: 0.5; }
