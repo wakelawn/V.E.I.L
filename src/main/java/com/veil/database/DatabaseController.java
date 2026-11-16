@@ -7,7 +7,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/database")
-//@CrossOrigin(origins = "*")
 public class DatabaseController {
 
     private final DatabaseAdapter databaseAdapter;

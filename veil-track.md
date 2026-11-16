@@ -72,15 +72,16 @@ PostgreSQL EXPLAIN
 
 ## 2. Current Technology Stack
 
-| Component              | Technology                  |
-| ---------------------- | --------------------------- |
-| Programming Language   | Java                        |
-| Framework              | Spring Boot                 |
-| Build Tool             | Maven                       |
-| IDE                    | Eclipse / Spring Tools      |
-| Database               | PostgreSQL                  |
-| Backend API            | Spring MVC / REST           |
-| Frontend               | HTML + CSS + JavaScript     |
+| Component              | Technology                  | Version              |
+| ---------------------- | --------------------------- | -------------------- |
+| Programming Language   | Java                        | 25                   |
+| Framework              | Spring Boot                 | 4.1.2                |
+| Build Tool             | Maven (Wrapper)             | mvnw                 |
+| IDE                    | Eclipse / Spring Tools      | —                    |
+| Database               | PostgreSQL                  | —                    |
+| JDBC Driver            | org.postgresql:postgresql   | 42.7.14              |
+| Backend API            | Spring MVC / REST           | —                    |
+| Frontend               | HTML + CSS + JavaScript     | —                    |
 
 ---
 
@@ -99,19 +100,31 @@ PostgreSQL EXPLAIN
 | PostgreSQL Database      | ✅     |
 | Database Tables          | ✅     |
 | Initial Indexes          | ✅     |
+| Database Abstraction Layer (DatabaseAdapter, DatabaseCapabilities, DatabaseType) | ✅ |
+| Execution Plan Provider Abstraction | ✅ |
+| EXPLAIN Integration (ExplainService) | ✅ |
+| Plan Metrics & Rule-based Recommendations | ✅ |
+| REST API Core (`/api/analyze`, `/api/explain`, `/api/database`, `/api/database/health`) | ✅ |
+| CORS Configuration       | ✅     |
+| Dashboard Frontend (HTML/CSS/JS) | ✅ |
+| Unit Tests (Lexer, Parser, Context — 12 passing) | ✅ |
 
 ### In Progress / Planned
 
 | Area                     | Status |
 | ------------------------ | ------ |
+| Better SQL Grammar (JOIN, ORDER BY, GROUP BY, subqueries, more operators) | 🟡 |
 | Semantic Analyzer        | ⏳     |
 | Query Planner            | ⏳     |
-| EXPLAIN Integration      | ⏳     |
+| Deeper Plan-Tree Analysis | ⏳    |
 | Cost Analysis            | ⏳     |
 | Optimizer                | ⏳     |
 | Index Recommendation     | ⏳     |
-| Complete REST API        | ⏳     |
-| Final Frontend           | ⏳     |
+| Multi-connection Support (ConnectionService, Registry, per-connection DataSource) | ⏳ |
+| React Auth UI (veil-auth) | ⏳    |
+| AI Explanation Layer     | ⏳     |
+| MySQL / SQLite Adapters  | ⏳     |
+| Integration Tests (explain endpoint, controllers) | ⏳ |
 
 ### Current Important Milestone
 
@@ -125,6 +138,62 @@ Tokens
 Parser
  ↓
 AST
+ ↓
+Analysis
+ ↓
+PostgreSQL EXPLAIN
+ ↓
+PlanSummary
+ ↓
+Metrics + Recommendations
+```
+
+### Current Status Snapshot (last updated 16 November 2026)
+
+Verified against the repository (not just planned):
+
+```text
+DONE (exists in code)
+- com.veil.lexer / parser / ast           → SQL engine core
+- com.veil.core.database                  → DatabaseAdapter, DatabaseCapabilities,
+                                            DatabaseType, ExecutionPlanProvider
+- com.veil.database.postgres              → PostgreSQLAdapter,
+                                            PostgreSQLExecutionPlanProvider
+- com.veil.explain                        → ExplainService, PlanSummary,
+                                            ExplainController
+- com.veil.service                        → QueryService, QueryController,
+                                            AnalyzeResponse
+- com.veil.config                         → CorsConfig, JacksonConfig
+- src/test/java                           → 12 JUnit tests passing
+                                            (5 lexer + 6 parser + 1 context)
+- static/index.html                       → dashboard UI calling /api/analyze
+                                            and /api/database
+
+IN PROGRESS
+- Lexer comparison operators (<, >, <=, >=, <>, !=) tokenized with
+  lookahead; parser support + operator tests pending (Phase 2)
+
+SECURITY
+- Spring Boot 4.1.2 (patch bump from 4.1.1)
+  fixes 4 Tomcat CVEs: CVE-2026-65905, CVE-2026-65637,
+  CVE-2026-65182, CVE-2026-68525 (Tomcat 11.0.24 → 11.0.27)
+  also pulls Spring Framework 7.0.10 and Jackson 3.1.7
+
+NOT STARTED (does not exist yet)
+- connection/dto + ConnectionService/Registry (multi-connection)
+- veil-auth React app
+- semantic analyzer, cost module, index recommender
+- backend authentication (JWT was previously added, then removed)
+
+OPEN THREADS
+- CORS allow-list uses http://127.0.0.1:5500; frontend may be opened
+  at http://localhost:5500 — align when frontend serving is settled
+- JacksonConfig ObjectMapper bean exists; harmless, decide later
+- Two Jackson stacks on classpath: Boot 4 web layer uses Jackson 3
+  (tools.jackson); ExplainService/JacksonConfig use Jackson 2
+  (com.fasterxml, pinned 2.22.4)
+- DB credentials are env-var based (DB_HOST, DB_PORT, DB_NAME,
+  DB_USERNAME, DB_PASSWORD with local defaults)
 ```
 
 ---
@@ -204,6 +273,11 @@ IDENTIFIER
 NUMBER
 STRING
 EQUALS
+NOT_EQUALS
+LESS
+LESS_OR_EQUAL
+GREATER
+GREATER_OR_EQUAL
 COMMA
 STAR
 SEMICOLON
@@ -358,6 +432,7 @@ Currently stores:
 ```text
 columns
 table
+whereCondition
 ```
 
 ### TableReference.java
@@ -449,7 +524,7 @@ VEIL
 ├── src/main/java
 │   └── com.veil
 │       │
-│       ├── VeilApplication.java
+│       ├── Application.java
 │       │
 │       ├── lexer
 │       │   ├── TokenType.java
@@ -463,19 +538,48 @@ VEIL
 │       ├── ast
 │       │   ├── Statement.java
 │       │   ├── SelectStatement.java
-│       │   └── TableReference.java
+│       │   ├── TableReference.java
+│       │   └── WhereCondition.java
+│       │
+│       ├── core
+│       │   └── database
+│       │       ├── DatabaseType.java
+│       │       ├── DatabaseCapabilities.java
+│       │       ├── DatabaseAdapter.java
+│       │       └── ExecutionPlanProvider.java
+│       │
+│       ├── database
+│       │   ├── DatabaseController.java
+│       │   └── postgres
+│       │       ├── PostgreSQLAdapter.java
+│       │       └── PostgreSQLExecutionPlanProvider.java
+│       │
+│       ├── explain
+│       │   ├── ExplainService.java
+│       │   ├── ExplainController.java
+│       │   └── PlanSummary.java
 │       │
 │       ├── service
 │       │   ├── QueryService.java
+│       │   ├── QueryController.java
 │       │   └── AnalyzeResponse.java
 │       │
-│       └── controller
-│           └── QueryController.java
+│       └── config
+│           ├── CorsConfig.java
+│           └── JacksonConfig.java
 │
 ├── src/main/resources
-│   └── application.properties
+│   ├── application.properties
+│   └── static
+│       └── index.html
 │
 ├── src/test/java
+│   └── com.veil
+│       ├── ApplicationTests.java
+│       ├── lexer
+│       │   └── LexerTest.java
+│       └── parser
+│           └── ParserTest.java
 │
 ├── pom.xml
 └── target
@@ -671,7 +775,21 @@ VEIL can eventually interpret these operations and present them in a simpler for
 
 ## 22. Important Terms
 
-Need chnages!!                                  
+| Term | Meaning |
+| -------------------------------- | ------------------------------------------------------------ |
+| AST | Abstract Syntax Tree: structured representation of parsed SQL |
+| Adapter | Database-specific implementation for connection and metadata operations (e.g., `PostgreSQLAdapter`) |
+| DatabaseCapabilities | Flags describing what an adapter supports: SQL, EXPLAIN, indexes, transactions, schema inspection |
+| ExecutionPlanProvider | Database-specific component that requests a native execution plan |
+| PlanSummary | VEIL's normalized / summarized representation of an execution plan |
+| Plan Metrics | Aggregated counts over the plan tree: plan nodes, scan nodes, index scans, sequential scans |
+| DataSource | A configured source of database connections; each saved connection may need its own DataSource (planned) |
+| JdbcTemplate | Spring JDBC helper for executing SQL through a DataSource |
+| CORS | Browser security mechanism controlling cross-origin requests |
+| Connection Registry | (Planned) named registry holding per-connection DataSources and adapters |
+| Deterministic analysis | Rule-based findings computed from AST or plan facts; never invented |
+| AI explanation layer | (Planned) model-generated commentary that explains deterministic findings but must not fabricate costs, rows, indexes, or schema facts |
+
 ---
 
 ## 23. What VEIL Is Not Yet
@@ -765,17 +883,17 @@ Index Recommendations
 
 | Phase    | Focus                                | Status          |
 | -------- | ------------------------------------ | --------------- |
-| Phase 1  | Lexer, Parser, AST                   | ✅ Current core |
-| Phase 2  | Better SQL Grammar, Semantic Analysis| ⏳ Planned      |
+| Phase 1  | Lexer, Parser, AST                   | ✅ Done          |
+| Phase 2  | Better SQL Grammar, Semantic Analysis| 🟡 In progress (lexer operators done; parser + tests pending) |
 | Phase 3  | PostgreSQL Integration               | ✅ Done         |
-| Phase 4  | EXPLAIN Integration                  | ⏳ Planned      |
-| Phase 5  | Execution Plan Analysis              | ⏳ Planned      |
+| Phase 4  | EXPLAIN Integration                  | ✅ Done         |
+| Phase 5  | Execution Plan Analysis              | 🟡 ~70% (deeper plan-tree analysis remains) |
 | Phase 6  | Cost Analysis                        | ⏳ Planned      |
-| Phase 7  | Optimization Engine                  | ⏳ Planned      |
+| Phase 7  | Optimization Engine                  | 🟡 Basic rule-based recommendations done |
 | Phase 8  | Index Analysis                       | ⏳ Planned      |
-| Phase 9  | REST API                             | ⏳ Planned      |
-| Phase 10 | Frontend                             | ✅ Done      	   |
-| Phase 11 | Testing + Documentation              | ⏳ Planned      |
+| Phase 9  | REST API                             | 🟡 Core endpoints done; connections API pending |
+| Phase 10 | Frontend                             | 🟡 Dashboard done; React auth UI pending |
+| Phase 11 | Testing + Documentation              | 🟡 Unit tests + docs in place; integration tests pending |
 
 ---
 

@@ -1,8 +1,5 @@
 package com.veil.service;
 
-import com.veil.service.AnalyzeResponse;
-import com.veil.service.QueryService;
-
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;

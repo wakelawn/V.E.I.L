@@ -33,10 +33,74 @@ public class Lexer {
                 continue;
             }
 
-            // =
+            // = (single-character operator, needs no lookahead)
             if (current == '=') {
                 tokens.add(new Token(TokenType.EQUALS, "="));
                 position++;
+                continue;
+            }
+
+            // < and <= and <> (two-character operators need lookahead)
+            if (current == '<') {
+
+                position++;
+
+                if (position < input.length()
+                        && input.charAt(position) == '=') {
+
+                    tokens.add(new Token(TokenType.LESS_OR_EQUAL, "<="));
+                    position++;
+
+                } else if (position < input.length()
+                        && input.charAt(position) == '>') {
+
+                    tokens.add(new Token(TokenType.NOT_EQUALS, "<>"));
+                    position++;
+
+                } else {
+
+                    tokens.add(new Token(TokenType.LESS, "<"));
+                }
+
+                continue;
+            }
+
+            // > and >= (same lookahead idea)
+            if (current == '>') {
+
+                position++;
+
+                if (position < input.length()
+                        && input.charAt(position) == '=') {
+
+                    tokens.add(new Token(TokenType.GREATER_OR_EQUAL, ">="));
+                    position++;
+
+                } else {
+
+                    tokens.add(new Token(TokenType.GREATER, ">"));
+                }
+
+                continue;
+            }
+
+            // != (the ! must be followed by =, otherwise it is an error)
+            if (current == '!') {
+
+                position++;
+
+                if (position < input.length()
+                        && input.charAt(position) == '=') {
+
+                    tokens.add(new Token(TokenType.NOT_EQUALS, "!="));
+                    position++;
+
+                } else {
+
+                    throw new RuntimeException(
+                            "Unknown character: ! (expected !=)");
+                }
+
                 continue;
             }
 

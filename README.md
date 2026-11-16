@@ -21,7 +21,7 @@ It takes a SQL query, breaks it into tokens, parses its structure into an AST, a
    - [Spring Boot](#9-spring-boot)
    - [QueryService](#10-queryservice)
    - [QueryController](#11-querycontroller)
-   - [DatabaseService](#12-databaseservice)
+   - [DatabaseAdapter](#12-databaseadapter)
    - [DatabaseController](#13-databasecontroller)
    - [ExplainService](#14-explainservice)
    - [ExplainController](#15-explaincontroller)
@@ -366,9 +366,20 @@ POST /api/analyze
 
 ---
 
-## 12. DatabaseService
+## 12. DatabaseAdapter
 
-`DatabaseService` communicates with PostgreSQL using:
+`DatabaseAdapter` is the common contract for communicating with a database.
+
+It defines what every database implementation must provide:
+
+- database type
+- capabilities
+- connection test
+- database name
+- tables
+- indexes
+
+The current implementation is `PostgreSQLAdapter`, which communicates with PostgreSQL using:
 
 ```text
 JdbcTemplate
@@ -381,9 +392,11 @@ It currently retrieves:
 - row counts
 - indexes
 
+The related interface `ExecutionPlanProvider` is implemented by `PostgreSQLExecutionPlanProvider`, which runs `EXPLAIN (FORMAT JSON)` queries.
+
 ### Explanation
 
-> DatabaseService is responsible for querying PostgreSQL metadata and retrieving information about VEIL's database.
+> DatabaseAdapter and ExecutionPlanProvider are abstractions for querying PostgreSQL metadata and execution plans. PostgreSQLAdapter is the concrete implementation for VEIL's database.
 
 ---
 

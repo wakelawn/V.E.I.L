@@ -5,11 +5,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class Application {
-	
-	
+
 	public static void main(String[] args) {
 		SpringApplication.run(Application.class, args);
-		System.out.println("Application working fine!");
+		System.out.println("Hello World!");
+		System.out.println("Welcome to Veil!");
+		System.out.println("Let's get started!");
 	}
 
 }
