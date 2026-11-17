@@ -113,13 +113,12 @@
                 <pre class="line-nums" id="lineNums" aria-hidden="true"></pre>
                 <div class="code-area">
               <pre class="sql-highlight" id="sqlHighlight" aria-hidden="true"></pre>
-              <textarea id="sqlInput" class="sql-input" wrap="off" spellcheck="false" placeholder="Paste your SQL query here...">SELECT u.id, u.name, u.email, o.total_amount
-FROM users u
-JOIN orders o ON u.id = o.user_id
-WHERE o.status = 'completed'
-  AND o.created_at > '2024-01-01'
-ORDER BY o.total_amount DESC
-LIMIT 10;</textarea>
+              <textarea id="sqlInput" class="sql-input" wrap="off" spellcheck="false" placeholder="Paste your SQL query here...">SELECT q.id, q.query_text, p.name
+FROM queries q
+JOIN projects p ON q.project_id = p.id
+WHERE p.id = 1 AND q.status = 'done'
+ORDER BY q.created_at DESC
+LIMIT 5;</textarea>
             </div>
             </div>
             <div id="errorBox" class="error-box" role="alert" hidden></div>

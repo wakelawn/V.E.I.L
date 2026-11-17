@@ -1,6 +1,6 @@
 package com.veil.ast;
 
-public class WhereCondition {
+public class WhereCondition implements Condition {
 
 	private final String column;
 	private final String operator;

@@ -78,4 +78,60 @@ class LexerTest {
 				() -> new Lexer("SELECT name FROM users WHERE id = (1);")
 						.tokenize());
 	}
+
+	@Test
+	void tokenizesComparisonOperators() {
+
+		List<Token> tokens = new Lexer("< <= > >= <> !=").tokenize();
+
+		assertEquals(TokenType.LESS, tokens.get(0).getType());
+		assertEquals(TokenType.LESS_OR_EQUAL, tokens.get(1).getType());
+		assertEquals(TokenType.GREATER, tokens.get(2).getType());
+		assertEquals(TokenType.GREATER_OR_EQUAL, tokens.get(3).getType());
+		assertEquals(TokenType.NOT_EQUALS, tokens.get(4).getType());
+		assertEquals(TokenType.NOT_EQUALS, tokens.get(5).getType());
+	}
+
+	@Test
+	void tokenizesLoneLessAndGreater() {
+
+		List<Token> tokens = new Lexer("< >").tokenize();
+
+		assertEquals(TokenType.LESS, tokens.get(0).getType());
+		assertEquals("<", tokens.get(0).getValue());
+		assertEquals(TokenType.GREATER, tokens.get(1).getType());
+	}
+
+	@Test
+	void tokenizesTrailingLessAtEnd() {
+
+		// the lookahead must not run past the end of the input
+		List<Token> tokens = new Lexer("<").tokenize();
+
+		assertEquals(TokenType.LESS, tokens.get(0).getType());
+		assertEquals(TokenType.EOF, tokens.get(1).getType());
+	}
+
+	@Test
+	void throwsOnBareExclamation() {
+
+		assertThrows(LexException.class,
+				() -> new Lexer("SELECT ! FROM t;").tokenize());
+	}
+
+	@Test
+	void tokenizesNewKeywordsAndDot() {
+
+		List<Token> tokens =
+				new Lexer("SELECT a FROM t JOIN s ON t.a = s.b "
+						+ "ORDER BY a DESC LIMIT 5;").tokenize();
+
+		assertEquals(TokenType.JOIN, tokens.get(4).getType());
+		assertEquals(TokenType.ON, tokens.get(6).getType());
+		assertEquals(TokenType.DOT, tokens.get(8).getType());
+		assertEquals(TokenType.ORDER, tokens.get(14).getType());
+		assertEquals(TokenType.BY, tokens.get(15).getType());
+		assertEquals(TokenType.DESC, tokens.get(17).getType());
+		assertEquals(TokenType.LIMIT, tokens.get(18).getType());
+	}
 }

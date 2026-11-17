@@ -104,16 +104,19 @@ PostgreSQL EXPLAIN
 | Execution Plan Provider Abstraction | ✅ |
 | EXPLAIN Integration (ExplainService) | ✅ |
 | Plan Metrics & Rule-based Recommendations | ✅ |
+| Deeper Plan Analysis (PlanAnalyzer — bottleneck by self-cost, Seq Scan + filter insight) | ✅ |
+| Cost Analysis (CostAnalyzer — per-node cost shares, category breakdown) | ✅ |
+| Optimization Engine (OptimizationRule engine, 4 AST rules, structured findings with severity) | ✅ |
 | REST API Core (`/api/analyze`, `/api/explain`, `/api/database`, `/api/database/health`) | ✅ |
 | CORS Configuration       | ✅     |
 | Dashboard Frontend (HTML/CSS/JS) | ✅ |
-| Unit Tests (Lexer, Parser, Context — 12 passing) | ✅ |
+| Unit Tests (Lexer, Parser, Optimization Engine, Plan/Cost Analysis — 41 passing) | ✅ |
 
 ### In Progress / Planned
 
 | Area                     | Status |
 | ------------------------ | ------ |
-| Better SQL Grammar (JOIN, ORDER BY, GROUP BY, subqueries, more operators) | 🟡 |
+| Better SQL Grammar (JOIN, ORDER BY, GROUP BY, subqueries, more operators) | 🟡 (JOIN/ORDER BY/operators/aliases done; GROUP BY, subqueries pending) |
 | Semantic Analyzer        | ⏳     |
 | Query Planner            | ⏳     |
 | Deeper Plan-Tree Analysis | ⏳    |
@@ -148,7 +151,7 @@ PlanSummary
 Metrics + Recommendations
 ```
 
-### Current Status Snapshot (last updated 16 November 2026)
+### Current Status Snapshot (last updated 17 November 2026)
 
 Verified against the repository (not just planned):
 
@@ -160,18 +163,37 @@ DONE (exists in code)
 - com.veil.database.postgres              → PostgreSQLAdapter,
                                             PostgreSQLExecutionPlanProvider
 - com.veil.explain                        → ExplainService, PlanSummary,
-                                            ExplainController
+                                            PlanAnalyzer, ExplainController
 - com.veil.service                        → QueryService, QueryController,
-                                            AnalyzeResponse
-- com.veil.config                         → CorsConfig, JacksonConfig
-- src/test/java                           → 12 JUnit tests passing
-                                            (5 lexer + 6 parser + 1 context)
-- static/index.html                       → dashboard UI calling /api/analyze
-                                            and /api/database
+                                            AnalyzeResponse (with structured
+                                            findings + recommendations)
+- com.veil.analysis                       → OptimizationEngine,
+                                            OptimizationRule, OptimizationFinding,
+                                            rules: SelectStar, FilterIndex,
+                                            NoFilter, Sort
+- com.veil.config                         → CorsConfig, JacksonConfig,
+                                            ApiExceptionHandler (400s with
+                                            {"error": ...} messages)
+- com.veil.lexer.LexException             → lexer errors are typed, not bare
+                                            RuntimeException
+- src/test/java                           → 41 JUnit tests passing
+                                            (10 lexer + 13 parser + 7
+                                            optimization engine + 5 plan
+                                            analysis + 5 cost analysis
+                                            + 1 context)
+- static/                                 → dashboard + login wired to real
+                                            backend: /api/analyze,
+                                            /api/explain, /api/database,
+                                            /api/database/health (script.js)
+- WHERE grammar                           → condition tree: ComparisonCondition
+                                            (WhereCondition leaf) + AND/OR
+                                            (LogicalCondition), comparison
+                                            operators, qualified columns (u.id)
+- Full SELECT grammar                     → JOIN ... ON with table aliases,
+                                            ORDER BY [ASC|DESC], LIMIT n
 
 IN PROGRESS
-- Lexer comparison operators (<, >, <=, >=, <>, !=) tokenized with
-  lookahead; parser support + operator tests pending (Phase 2)
+- deeper plan-tree analysis (Phase 5)
 
 SECURITY
 - Spring Boot 4.1.2 (patch bump from 4.1.1)
@@ -184,16 +206,19 @@ NOT STARTED (does not exist yet)
 - veil-auth React app
 - semantic analyzer, cost module, index recommender
 - backend authentication (JWT was previously added, then removed)
+- subqueries, GROUP BY/HAVING, window functions in parser
 
 OPEN THREADS
-- CORS allow-list uses http://127.0.0.1:5500; frontend may be opened
-  at http://localhost:5500 — align when frontend serving is settled
+- CORS allow-list uses http://127.0.0.1:5500; dashboard is normally
+  served same-origin from :8080 so CORS is only relevant for Live Server
 - JacksonConfig ObjectMapper bean exists; harmless, decide later
 - Two Jackson stacks on classpath: Boot 4 web layer uses Jackson 3
   (tools.jackson); ExplainService/JacksonConfig use Jackson 2
   (com.fasterxml, pinned 2.22.4)
 - DB credentials are env-var based (DB_HOST, DB_PORT, DB_NAME,
-  DB_USERNAME, DB_PASSWORD with local defaults)
+  DB_USERNAME, DB_PASSWORD with local defaults); local DB is named
+  v.e.i.l and DB_PASSWORD has no default (must be provided)
+- login is still client-side demo auth (demo@veil.app / veil123)
 ```
 
 ---
@@ -269,6 +294,16 @@ Current examples:
 SELECT
 FROM
 WHERE
+AND
+OR
+JOIN
+ON
+AS
+ORDER
+BY
+ASC
+DESC
+LIMIT
 IDENTIFIER
 NUMBER
 STRING
@@ -281,6 +316,7 @@ GREATER_OR_EQUAL
 COMMA
 STAR
 SEMICOLON
+DOT
 EOF
 ```
 
@@ -342,6 +378,20 @@ SELECT name FROM users;
 ```
 
 The parser also builds the AST.
+
+Supported grammar (as of 17 November 2026):
+
+```sql
+SELECT <column|*>[, ...]
+FROM <table> [alias]
+[JOIN <table> [alias] ON <condition>]...
+[WHERE <condition>]        -- condition tree: comparisons joined by AND/OR
+[ORDER BY <column> [ASC|DESC][, ...]]
+[LIMIT <n>][;]
+```
+
+WHERE precedence: AND binds tighter than OR (same as SQL).
+Qualified columns (u.id) are supported in SELECT, WHERE, ON and values.
 
 ---
 
@@ -535,11 +585,24 @@ VEIL
 │       │   ├── Parser.java
 │       │   └── ParseException.java
 │       │
+│       ├── analysis
+│       │   ├── OptimizationEngine.java
+│       │   ├── OptimizationRule.java
+│       │   ├── OptimizationFinding.java
+│       │   ├── SelectStarRule.java
+│       │   ├── FilterIndexRule.java
+│       │   ├── NoFilterRule.java
+│       │   └── SortRule.java
+│       │
 │       ├── ast
 │       │   ├── Statement.java
 │       │   ├── SelectStatement.java
 │       │   ├── TableReference.java
-│       │   └── WhereCondition.java
+│       │   ├── Condition.java
+│       │   ├── WhereCondition.java
+│       │   ├── LogicalCondition.java
+│       │   ├── JoinClause.java
+│       │   └── OrderByItem.java
 │       │
 │       ├── core
 │       │   └── database
@@ -557,6 +620,9 @@ VEIL
 │       ├── explain
 │       │   ├── ExplainService.java
 │       │   ├── ExplainController.java
+│       │   ├── PlanAnalyzer.java
+│       │   ├── CostAnalyzer.java
+│       │   ├── CostEntry.java
 │       │   └── PlanSummary.java
 │       │
 │       ├── service
@@ -578,8 +644,13 @@ VEIL
 │       ├── ApplicationTests.java
 │       ├── lexer
 │       │   └── LexerTest.java
-│       └── parser
-│           └── ParserTest.java
+│       ├── parser
+│       │   └── ParserTest.java
+│       ├── analysis
+│       │   └── OptimizationEngineTest.java
+│       └── explain
+│           ├── PlanAnalyzerTest.java
+│           └── CostAnalyzerTest.java
 │
 ├── pom.xml
 └── target
@@ -783,6 +854,11 @@ VEIL can eventually interpret these operations and present them in a simpler for
 | ExecutionPlanProvider | Database-specific component that requests a native execution plan |
 | PlanSummary | VEIL's normalized / summarized representation of an execution plan |
 | Plan Metrics | Aggregated counts over the plan tree: plan nodes, scan nodes, index scans, sequential scans |
+| Self cost | A plan node's own work: its total cost minus its children's total costs (parents include children) |
+| Plan bottleneck | The node with the highest self cost (reported when it is ≥30% of the plan's total cost) |
+| Cost breakdown | Per-node list of self costs with share % and a work category (scan/join/sort/aggregate/other), produced by CostAnalyzer |
+| Optimization rule | One AST-level check (e.g. SelectStarRule) that appends findings to a shared list; the engine runs all rules in order |
+| Finding | Structured advice entry: ruleId, severity (high/medium/low), title, message, optional suggestion SQL |
 | DataSource | A configured source of database connections; each saved connection may need its own DataSource (planned) |
 | JdbcTemplate | Spring JDBC helper for executing SQL through a DataSource |
 | CORS | Browser security mechanism controlling cross-origin requests |
@@ -884,15 +960,15 @@ Index Recommendations
 | Phase    | Focus                                | Status          |
 | -------- | ------------------------------------ | --------------- |
 | Phase 1  | Lexer, Parser, AST                   | ✅ Done          |
-| Phase 2  | Better SQL Grammar, Semantic Analysis| 🟡 In progress (lexer operators done; parser + tests pending) |
+| Phase 2  | Better SQL Grammar, Semantic Analysis| ✅ Grammar done (JOIN/ON, aliases, AND/OR tree, comparison operators, ORDER BY, LIMIT); semantic analysis still basic |
 | Phase 3  | PostgreSQL Integration               | ✅ Done         |
 | Phase 4  | EXPLAIN Integration                  | ✅ Done         |
-| Phase 5  | Execution Plan Analysis              | 🟡 ~70% (deeper plan-tree analysis remains) |
-| Phase 6  | Cost Analysis                        | ⏳ Planned      |
-| Phase 7  | Optimization Engine                  | 🟡 Basic rule-based recommendations done |
+| Phase 5  | Execution Plan Analysis              | ✅ Done (bottleneck by self-cost, filter/sort-key capture, Seq Scan + filter insights) |
+| Phase 6  | Cost Analysis                        | ✅ Done (CostAnalyzer: per-node self-cost shares, category breakdown) |
+| Phase 7  | Optimization Engine                  | ✅ Done (com.veil.analysis: OptimizationRule engine, 4 rules, structured findings with severity) |
 | Phase 8  | Index Analysis                       | ⏳ Planned      |
-| Phase 9  | REST API                             | 🟡 Core endpoints done; connections API pending |
-| Phase 10 | Frontend                             | 🟡 Dashboard done; React auth UI pending |
+| Phase 9  | REST API                             | 🟡 Core endpoints + error handling done; connections API pending |
+| Phase 10 | Frontend                             | 🟡 Dashboard wired to backend; React auth UI pending |
 | Phase 11 | Testing + Documentation              | 🟡 Unit tests + docs in place; integration tests pending |
 
 ---

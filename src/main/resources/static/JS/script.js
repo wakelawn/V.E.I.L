@@ -3,27 +3,35 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* ================= DEMO DATA ================= */
-  const SCHEMA = {
-    users:       ['id', 'name', 'email', 'created_at'],
-    orders:      ['id', 'user_id', 'status', 'total_amount', 'created_at'],
-    products:    ['id', 'name', 'price', 'category_id'],
-    categories:  ['id', 'name'],
-    order_items: ['id', 'order_id', 'product_id', 'quantity'],
-    payments:    ['id', 'order_id', 'amount', 'paid_at'],
+  /* ================= API ================= */
+  const readError = async (res) => {
+    try {
+      const body = await res.json();
+      return body.error || body.message || `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status} ${res.statusText}`;
+    }
   };
-  const INDEXES = [
-    { name: 'users_pkey',               table: 'users',       cols: 'id' },
-    { name: 'orders_pkey',              table: 'orders',      cols: 'id' },
-    { name: 'products_pkey',            table: 'products',    cols: 'id' },
-    { name: 'categories_pkey',          table: 'categories',  cols: 'id' },
-    { name: 'order_items_order_id_idx', table: 'order_items', cols: 'order_id' },
-    { name: 'payments_pkey',            table: 'payments',    cols: 'id' },
-  ];
+  const API = {
+    async get(path) {
+      const res = await fetch(path, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(await readError(res));
+      return res.json();
+    },
+    async post(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      return res.json();
+    },
+  };
+
+  /* ================= CONNECTIONS ================= */
   const connections = [
-    { name: 'Production PostgreSQL', type: 'PostgreSQL', host: 'prod-db:5432', online: true },
-    { name: 'Staging MySQL',         type: 'MySQL',      host: 'stg-db:3306',  online: true },
-    { name: 'Local SQLite',          type: 'SQLite',     host: 'local.db',     online: false },
+    { name: 'Local PostgreSQL', type: 'PostgreSQL', host: 'localhost:5432', online: true },
   ];
 
   /* ================= TABS (generic) =================
@@ -124,36 +132,7 @@
   function showError(msg) { const b = $('#errorBox'); b.textContent = msg; b.hidden = false; }
   function hideError() { $('#errorBox').hidden = true; }
 
-  /* ================= SQL PARSING ================= */
-  function parseSQL(sql) {
-    const clean = sql.replace(/--[^\n]*/g, ' ').replace(/\s+/g, ' ').trim().replace(/;$/, '');
-    const type = (clean.match(/^\w+/) || [''])[0].toUpperCase();
-
-    const tables = [];
-    const stop = 'ON|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|GROUP|ORDER|LIMIT|HAVING|USING|SET|VALUES';
-    const tre = new RegExp(`\\b(?:FROM|JOIN|INTO|UPDATE)\\s+([a-zA-Z_][\\w.]*)(?:\\s+(?:AS\\s+)?(?!(?:${stop})\\b)([a-zA-Z_]\\w*))?`, 'gi');
-    let m;
-    while ((m = tre.exec(clean))) tables.push({ name: m[1].toLowerCase(), alias: m[2] || m[1] });
-
-    const joins = (clean.match(/\bJOIN\b/gi) || []).length;
-    const wm = clean.match(/\bWHERE\b(.*?)(?=\bGROUP BY\b|\bHAVING\b|\bORDER BY\b|\bLIMIT\b|$)/i);
-    const filters = wm ? wm[1].trim().split(/\s+(?:AND|OR)\s+/i).filter(Boolean) : [];
-    const filterCols = filters.map((f) => (f.match(/([\w.]+)\s*(?:=|<|>|!|LIKE|IN\b)/i) || [])[1]).filter(Boolean);
-    const on = clean.match(/\bON\s+([\w.]+)\s*=\s*([\w.]+)/i);
-
-    return {
-      type, tables, joins, filters, filterCols,
-      on: on ? [on[1], on[2]] : null,
-      sorting: /\bORDER BY\b/i.test(clean),
-      grouping: /\bGROUP BY\b/i.test(clean),
-      limit: (clean.match(/\bLIMIT\s+(\d+)/i) || [])[1] || null,
-      hasStar: /SELECT\s+(?:\w+\.)?\*/i.test(clean),
-    };
-  }
-
-  /* ================= PLAN (simulated from the parsed query) =================
-     These costs/rows are estimates generated for the demo UI, not real
-     database output. Swap buildPlan() for a real EXPLAIN call later. */
+  /* ================= PLAN (real EXPLAIN from the backend) ================= */
   const NODE_DESC = {
     'Limit':          'Stops after the requested number of rows have been produced.',
     'Sort':           'Sorts the rows to satisfy ORDER BY. Can spill to disk if the row set is large.',
@@ -163,35 +142,29 @@
     'Index Scan':     'Uses an index to jump straight to matching rows instead of reading the whole table.',
   };
 
-  function buildPlan(p) {
+  /* ================= PLAN ADAPTER =================
+     Backend PlanSummary -> the shape renderPlan()/selectNode() expect. */
+  function adaptPlan(p) {
     let id = 0;
-    const node = (type, label, startup, total, rows, kind, children = []) => ({
-      id: ++id, type, label, startup: +startup.toFixed(2), total: +total.toFixed(2),
-      rows, time: [+(startup / 100).toFixed(3), +(total / 20).toFixed(3)], kind, children,
-    });
-
-    const base = p.tables.length ? p.tables : [{ name: 'table' }];
-    const rowSizes = [500, 200, 300, 150];
-    const scans = base.map((t, i) => {
-      const filtered = p.filterCols.some((c) => c.startsWith(t.alias + '.') || c.startsWith(t.name + '.'));
-      const useIndex = i > 0 || filtered;
-      return useIndex
-        ? node('Index Scan', 'on ' + t.name, 0.42, 5 + i * 3, rowSizes[i % 4], 'good')
-        : node('Seq Scan', 'on ' + t.name, 0, 10 + i * 5, rowSizes[i % 4], 'bad');
-    });
-
-    let cur = scans[0];
-    for (let i = 1; i < scans.length; i++) {
-      const rows = Math.round(Math.min(cur.rows, scans[i].rows) * 0.5) || 1;
-      cur = node('Hash Join', '', 0.42, cur.total + scans[i].total + 5, rows, 'info', [cur, scans[i]]);
-    }
-    const wrap = (type, extra, rows, kind) => {
-      cur = node(type, '', cur.startup + extra * 0.5, cur.total + extra, rows, kind, [cur]);
+    const walk = (n) => {
+      const type = n.nodeType || 'Unknown';
+      const kind = type === 'Seq Scan' ? 'bad'
+        : /Index/.test(type) ? 'good'
+        : type === 'Sort' ? 'warn'
+        : 'info';
+      return {
+        id: ++id,
+        type,
+        label: n.relation && n.relation !== 'NotAvailable' ? 'on ' + n.relation : '',
+        startup: n.startupCost ?? 0,
+        total: n.totalCost ?? 0,
+        rows: n.estimatedRows ?? 0,
+        time: [0, 0],
+        kind,
+        children: (n.children || []).map(walk),
+      };
     };
-    if (p.grouping) wrap('HashAggregate', 4, Math.max(1, Math.round(cur.rows * 0.6)), 'info');
-    if (p.sorting)  wrap('Sort', 5, cur.rows, 'warn');
-    if (p.limit)    wrap('Limit', 0.1, Math.min(+p.limit, cur.rows), 'info');
-    return cur;
+    return walk(p);
   }
 
   const flatten = (n, depth = 0, out = []) => { out.push({ n, depth }); n.children.forEach((c) => flatten(c, depth + 1, out)); return out; };
@@ -234,53 +207,41 @@
   }
 
   /* ================= INFO / RECOMMENDATIONS / AI ================= */
-  function renderInfo(p) {
+  function renderInfo(a) {
     const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
     $('#queryInfo').innerHTML =
-      row('Query Type', `<span class="pill">${esc(p.type)}</span>`) +
-      row('Tables', esc(p.tables.map((t) => t.name).join(', ') || '-')) +
-      row('Joins', p.joins) +
-      row('Filters', p.filters.length) +
-      row('Sorting', p.sorting ? '<span class="yes">Yes</span>' : 'No') +
-      row('Limit', p.limit ? `<span class="yes">Yes (${esc(p.limit)})</span>` : 'No');
+      row('Query Type', '<span class="pill">SELECT</span>') +
+      row('Table', esc(a.table || '-')) +
+      row('Columns', esc((a.columns || []).join(', ') || '-')) +
+      row('WHERE', esc(a.whereCondition || '-'));
   }
 
-  function buildRecs(p) {
-    const recs = [];
-    if (p.on) {
-      const [a, b] = p.on.map((s) => s.split('.'));
-      const target = p.tables.find((t) => t.alias === b[0] || t.name === b[0]);
-      const col = b[1] || a[1];
-      if (target && col) recs.push({
-        icon: '&#9888;', color: 'var(--bad)', impact: 'high', title: `Add Index on ${target.name}.${col}`,
-        text: `Consider adding an index on the ${target.name}.${col} column to improve join performance.`,
-        sql: `CREATE INDEX idx_${target.name}_${col}\n  ON ${target.name} (${col});`,
-      });
-    }
-    if (p.filterCols.length && p.sorting) {
-      const t = p.tables[p.tables.length - 1];
-      const cols = [...new Set(p.filterCols.map((c) => c.split('.').pop()))].join(', ');
-      recs.push({
-        icon: '&#9888;', color: 'var(--warn)', impact: 'medium', title: 'Consider Composite Index',
-        text: `A composite index on (${cols}) could improve filtering performance.`,
-        sql: `CREATE INDEX idx_${t.name}_composite\n  ON ${t.name} (${cols});`,
-      });
-    }
-    if (p.hasStar) recs.push({
-      icon: '&#9432;', color: 'var(--accent)', impact: 'low', title: 'Avoid SELECT *',
-      text: 'Select only the columns you need to reduce data transferred.',
-      sql: '-- List the needed columns explicitly instead of *',
+  function toRecs(a) {
+    // structured findings from the optimization engine, when present
+    const findings = (a && a.findings) || null;
+    const out = findings
+      ? findings.map((f) => {
+          const impact = ['high', 'medium', 'low'].includes(f.severity)
+            ? f.severity : 'low';
+          return {
+            icon: impact === 'high' ? '&#9888;' : '&#9432;',
+            color: impact === 'high' ? 'var(--warn)' : 'var(--accent)',
+            impact,
+            title: f.title || 'Recommendation',
+            text: f.message,
+            sql: f.suggestionSql || '',
+          };
+        })
+      : (a && a.recommendations || []).map((text) => ({
+          icon: '&#9888;', color: 'var(--warn)', impact: 'medium',
+          title: 'Recommendation', text, sql: '',
+        }));
+    if (!out.length) out.push({
+      icon: '&#9432;', color: 'var(--good)', impact: 'low',
+      title: 'No major issues found',
+      text: 'No optimization issues detected.', sql: '',
     });
-    if (!p.limit && p.type === 'SELECT') recs.push({
-      icon: '&#9432;', color: 'var(--accent)', impact: 'low', title: 'Consider Adding a LIMIT',
-      text: 'Limiting rows can reduce the work done on large result sets.',
-      sql: '-- Add: LIMIT 100',
-    });
-    if (!recs.length) recs.push({
-      icon: '&#9432;', color: 'var(--good)', impact: 'low', title: 'No major issues found',
-      text: 'This query looks reasonable based on the estimated plan.', sql: '',
-    });
-    return recs;
+    return out;
   }
 
   let recToastTimer;
@@ -315,55 +276,116 @@
     }));
   }
 
-  function renderAI(p, plan) {
-    const tbls = p.tables.map((t) => t.name);
-    const parts = [];
-    parts.push(`This ${p.type.toLowerCase()} query reads from ${tbls.length > 1 ? tbls.slice(0, -1).join(', ') + ' and ' + tbls.slice(-1) : (tbls[0] || 'a table')}.`);
-    if (p.joins) parts.push(`It combines ${p.joins + 1} tables using ${p.joins} join${p.joins > 1 ? 's' : ''}.`);
-    if (p.filters.length) parts.push(`${p.filters.length} filter condition${p.filters.length > 1 ? 's' : ''} narrow down the rows.`);
-    if (p.sorting) parts.push('Results are sorted' + (p.limit ? ` and cut to the first ${p.limit} rows.` : '.'));
-    const seq = flatten(plan).find(({ n }) => n.type === 'Seq Scan');
-    if (seq) parts.push(`The estimated plan shows a sequential scan ${seq.n.label}, which could be improved with an index.`);
-    $('#aiText').textContent = parts.join(' ');
+  function renderAI(plan) {
+    // the backend already produces a readable summary of the plan
+    $('#aiText').textContent = (plan && plan.planSummary) || '';
   }
 
   /* ================= ANALYZE ================= */
-  function analyze() {
+  async function analyze() {
     hideError();
     const sql = input.value.trim();
     if (!sql) return showError('Please enter a SQL query first.');
-    const p = parseSQL(sql);
-    if (!['SELECT', 'WITH', 'INSERT', 'UPDATE', 'DELETE'].includes(p.type)) {
-      return showError('This does not look like a valid SQL statement.');
+
+    const btn = $('#analyzeBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+
+    let failure = null;
+
+    let recs = [];
+
+    try {
+      // 1. parser-based analysis (tokens/columns/recommendations)
+      try {
+        const a = await API.post('/api/analyze', { sql });
+        renderInfo(a);
+        recs = toRecs(a);
+      } catch (e) {
+        // parser may not support the grammar yet; the plan can still work
+        failure = e.message;
+      }
+
+      // 2. real PostgreSQL EXPLAIN
+      try {
+        const ex = await API.post('/api/explain', { sql });
+        renderPlan(adaptPlan(ex.plan));
+        renderAI(ex.plan);
+
+        // plan-level insights (bottleneck, filter scans) join the list
+        for (const text of ex.plan.recommendations || []) {
+          recs.push({
+            icon: '&#9673;', color: 'var(--accent)', impact: 'low',
+            title: 'Plan Insight', text, sql: '',
+          });
+        }
+      } catch (e) {
+        failure = failure || e.message;
+      }
+
+      if (!recs.length) recs = toRecs([]);
+      renderRecs(recs);
+
+      if (failure) showError(failure);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
     }
-    if (!p.tables.length) return showError('No table found. Check your FROM clause.');
-    const plan = buildPlan(p);
-    renderInfo(p);
-    renderPlan(plan);
-    renderRecs(buildRecs(p));
-    renderAI(p, plan);
   }
   $('#analyzeBtn').addEventListener('click', analyze);
 
   /* ================= SCHEMA LIST ================= */
+  let schemaCache = { tables: [], indexes: [] };
+
+  async function loadSchema() {
+    try {
+      const data = await API.get('/api/database');
+      schemaCache = { tables: data.tables || [], indexes: data.indexes || [] };
+      renderSchema($('#schemaSearch').value.trim());
+    } catch (e) {
+      $('#tableList').innerHTML = '';
+      $('#indexList').innerHTML = '';
+      showError(`Could not load schema: ${e.message}`);
+    }
+  }
+
   function renderSchema(filter = '') {
     const f = filter.toLowerCase();
-    $('#tableList').innerHTML = Object.keys(SCHEMA).filter((t) => t.includes(f)).map((t) =>
-      `<li data-table="${t}"><span>&#9638; ${esc(t)}</span><div class="cols" hidden>${SCHEMA[t].map(esc).join('\n')}</div></li>`).join('');
-    $('#indexList').innerHTML = INDEXES.filter((i) => (i.name + i.table).includes(f)).map((i) =>
-      `<li><span>${esc(i.name)}</span><span class="meta">${esc(i.table)} (${esc(i.cols)})</span></li>`).join('');
-    $$('#tableList li').forEach((li) => li.addEventListener('click', () => {
-      const cols = $('.cols', li);
-      cols.hidden = !cols.hidden;
-      cols.style.whiteSpace = 'pre';
-      li.classList.toggle('open', !cols.hidden);
-    }));
+    $('#tableList').innerHTML = schemaCache.tables
+      .filter((t) => t.table_name.toLowerCase().includes(f))
+      .map((t) => `<li><span>&#9638; ${esc(t.table_name)}</span></li>`)
+      .join('');
+
+    $('#indexList').innerHTML = schemaCache.indexes
+      .filter((i) => (i.indexname + i.tablename).toLowerCase().includes(f))
+      .map((i) => `<li><span>${esc(i.indexname)}</span><span class="meta">${esc(i.tablename)}</span></li>`)
+      .join('');
   }
   $('#schemaSearch').addEventListener('input', (e) => renderSchema(e.target.value.trim()));
 
+  /* ================= HEALTH ================= */
+  async function loadHealth() {
+    let ok = false;
+    const typeMap = { POSTGRESQL: 'PostgreSQL', MYSQL: 'MySQL', SQLITE: 'SQLite', MONGODB: 'Mongodb' };
+    let type = connections[0].type;
+    try {
+      const h = await API.get('/api/database/health');
+      ok = !!h.connected;
+      if (typeMap[h.databaseType]) type = typeMap[h.databaseType];
+    } catch {
+      // leave offline; the error box is not needed for a status check
+    }
+
+    connections[0].online = ok;
+    connections[0].type = type;
+    applyConnection();
+  }
+
   /* ================= INIT ================= */
   renderConnections(0);
-  renderSchema();
+  loadHealth();
+  loadSchema();
   refreshEditor();
   analyze();
 })();

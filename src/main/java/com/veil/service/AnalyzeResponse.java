@@ -1,5 +1,7 @@
 package com.veil.service;
 
+import com.veil.analysis.OptimizationFinding;
+
 import java.util.List;
 
 public class AnalyzeResponse {
@@ -9,17 +11,19 @@ public class AnalyzeResponse {
 	private final String table;
 	private final List<String> columns;
 	private final String whereCondition;
+	private final List<OptimizationFinding> findings;
 	private final List<String> recommendations;
 
 	public AnalyzeResponse(List<String> tokens, String ast, String table,
 			List<String> columns, String whereCondition,
-			List<String> recommendations) {
+			List<OptimizationFinding> findings, List<String> recommendations) {
 
 		this.tokens = tokens;
 		this.ast = ast;
 		this.table = table;
 		this.columns = columns;
 		this.whereCondition = whereCondition;
+		this.findings = findings;
 		this.recommendations = recommendations;
 	}
 
@@ -41,6 +45,10 @@ public class AnalyzeResponse {
 
 	public String getWhereCondition() {
 		return whereCondition;
+	}
+
+	public List<OptimizationFinding> getFindings() {
+		return findings;
 	}
 
 	public List<String> getRecommendations() {

@@ -97,7 +97,7 @@ public class Lexer {
 
                 } else {
 
-                    throw new RuntimeException(
+                    throw new LexException(
                             "Unknown character: ! (expected !=)");
                 }
 
@@ -114,6 +114,13 @@ public class Lexer {
             // ;
             if (current == ';') {
                 tokens.add(new Token(TokenType.SEMICOLON, ";"));
+                position++;
+                continue;
+            }
+
+            // . (for qualified names like u.id)
+            if (current == '.') {
+                tokens.add(new Token(TokenType.DOT, "."));
                 position++;
                 continue;
             }
@@ -147,6 +154,36 @@ public class Lexer {
 
                     case "WHERE" ->
                         tokens.add(new Token(TokenType.WHERE, value));
+
+                    case "AND" ->
+                        tokens.add(new Token(TokenType.AND, value));
+
+                    case "OR" ->
+                        tokens.add(new Token(TokenType.OR, value));
+
+                    case "JOIN" ->
+                        tokens.add(new Token(TokenType.JOIN, value));
+
+                    case "ON" ->
+                        tokens.add(new Token(TokenType.ON, value));
+
+                    case "AS" ->
+                        tokens.add(new Token(TokenType.AS, value));
+
+                    case "ORDER" ->
+                        tokens.add(new Token(TokenType.ORDER, value));
+
+                    case "BY" ->
+                        tokens.add(new Token(TokenType.BY, value));
+
+                    case "ASC" ->
+                        tokens.add(new Token(TokenType.ASC, value));
+
+                    case "DESC" ->
+                        tokens.add(new Token(TokenType.DESC, value));
+
+                    case "LIMIT" ->
+                        tokens.add(new Token(TokenType.LIMIT, value));
 
                     default ->
                         tokens.add(new Token(TokenType.IDENTIFIER, value));
@@ -199,7 +236,7 @@ public class Lexer {
                 continue;
             }
 
-            throw new RuntimeException(
+            throw new LexException(
                 "Unknown character: " + current
             );
         }

@@ -5,6 +5,16 @@ public enum TokenType {
     SELECT,
     FROM,
     WHERE,
+    AND,
+    OR,
+    JOIN,
+    ON,
+    AS,
+    ORDER,
+    BY,
+    ASC,
+    DESC,
+    LIMIT,
 
     IDENTIFIER,
     NUMBER,
@@ -19,6 +29,7 @@ public enum TokenType {
     COMMA,
     STAR,
     SEMICOLON,
+    DOT,
 
     EOF
 }

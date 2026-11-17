@@ -20,6 +20,13 @@ public class PlanSummary {
 	private List<PlanSummary> children = new ArrayList<>();
 	private List<String> recommendations = new ArrayList<>();
 
+	// extra node details used by deeper plan analysis
+	private String filter;
+	private String sortKey;
+
+	// cost breakdown (set on the root only)
+	private List<CostEntry> costBreakdown = new ArrayList<>();
+
 	// batch 2 pull up for counts
 	private int planNodeCount;
 	private int scanNodeCount;
@@ -108,6 +115,30 @@ public class PlanSummary {
 
 	public void setParallelAware(boolean parallelAware) {
 		this.parallelAware = parallelAware;
+	}
+
+	public String getFilter() {
+		return filter;
+	}
+
+	public void setFilter(String filter) {
+		this.filter = filter;
+	}
+
+	public String getSortKey() {
+		return sortKey;
+	}
+
+	public void setSortKey(String sortKey) {
+		this.sortKey = sortKey;
+	}
+
+	public List<CostEntry> getCostBreakdown() {
+		return costBreakdown;
+	}
+
+	public void setCostBreakdown(List<CostEntry> costBreakdown) {
+		this.costBreakdown = costBreakdown;
 	}
 
 	public List<PlanSummary> getChildren() {

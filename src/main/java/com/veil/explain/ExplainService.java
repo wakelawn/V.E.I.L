@@ -19,6 +19,8 @@ public class ExplainService {
 
 	private final ExecutionPlanProvider executionPlanProvider;
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final PlanAnalyzer planAnalyzer = new PlanAnalyzer();
+	private final CostAnalyzer costAnalyzer = new CostAnalyzer();
 
 	public ExplainService(
 			ExecutionPlanProvider executionPlanProvider
@@ -133,6 +135,20 @@ public class ExplainService {
 
 		summary.setParallelAware(
 				getBoolean(plan, "Parallel Aware"));
+
+		// the row filter a scan applies, and the sort keys of a Sort node.
+		// both feed the deeper plan analysis
+		JsonNode filter = plan.get("Filter");
+
+		if (filter != null && !filter.isNull()) {
+			summary.setFilter(filter.asText());
+		}
+
+		JsonNode sortKey = plan.get("Sort Key");
+
+		if (sortKey != null && sortKey.isArray() && !sortKey.isEmpty()) {
+			summary.setSortKey(sortKey.get(0).asText());
+		}
 
 		// analyze teh node using the available plan estimates
 		summary.setRecommendations(
@@ -268,11 +284,26 @@ public class ExplainService {
 		root.setScanNodeCount(counts[1]);
 		root.setIndexScanCount(counts[2]);
 		root.setSequentialScanCount(counts[3]);
+
+		// deeper analysis adds plan-level insights to the nodes;
+		// must run before they are collected into the root
+		planAnalyzer.analyze(root);
+
 		Set<String> allRecommendations = new LinkedHashSet<>();
 		collectRecommendations(root, allRecommendations);
 
 		root.setRecommendations(new ArrayList<>(allRecommendations));
 		root.setPlanSummary(buildPlanSummary(root, counts));
+
+		// cost breakdown: where the plan's total cost went
+		List<CostEntry> breakdown = costAnalyzer.breakdown(root);
+		root.setCostBreakdown(breakdown);
+
+		String costLine = costAnalyzer.summarize(breakdown);
+
+		if (!costLine.isEmpty()) {
+			root.setPlanSummary(root.getPlanSummary() + " " + costLine);
+		}
 	}
 
 	private void collectRecommendations(

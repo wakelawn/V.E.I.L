@@ -1,5 +1,7 @@
 package com.veil.service;
 
+import com.veil.analysis.OptimizationEngine;
+import com.veil.analysis.OptimizationFinding;
 import com.veil.ast.SelectStatement;
 import com.veil.ast.Statement;
 import com.veil.lexer.Lexer;
@@ -55,42 +57,22 @@ public class QueryService {
 		}
 
 
-		// 5. RECOMMENDATIONS
-		List<String> recommendations = generateRecommendations(select);
+		// 5. OPTIMIZATION ENGINE (rules over the AST)
+		OptimizationEngine engine = new OptimizationEngine();
+
+		List<OptimizationFinding> findings = engine.run(select);
+
+		// plain strings kept for backward compatibility
+		List<String> recommendations = new ArrayList<>();
+
+		for (OptimizationFinding finding : findings) {
+			recommendations.add(finding.getMessage());
+		}
 
 
 		// 6. RESPONSE
 		return new AnalyzeResponse(tokens, statement.toString(),
 				select.getTable().getTableName(), select.getColumns(),
-				whereCondition, recommendations);
-	}
-
-	private List<String> generateRecommendations(SelectStatement select) {
-
-		List<String> recommendations = new ArrayList<>();
-
-		// SELECT *
-		if (select.getColumns().contains("*")) {
-
-			recommendations.add(
-					"Avoid SELECT * when only specific columns are required.");
-		}
-
-		// WHERE
-		if (select.getWhereCondition() != null) {
-
-			String column = select.getWhereCondition().getColumn();
-
-			recommendations.add("WHERE condition detected on column '" + column
-					+ "'. Consider an index if this column is frequently filtered.");
-		}
-
-		// Nothing detected
-		if (recommendations.isEmpty()) {
-
-			recommendations.add("No basic optimization issues detected.");
-		}
-
-		return recommendations;
+				whereCondition, findings, recommendations);
 	}
 }
