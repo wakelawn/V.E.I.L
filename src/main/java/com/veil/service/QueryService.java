@@ -1,5 +1,6 @@
 package com.veil.service;
 
+import com.veil.analysis.IndexAdvisor;
 import com.veil.analysis.OptimizationEngine;
 import com.veil.analysis.OptimizationFinding;
 import com.veil.ast.SelectStatement;
@@ -15,6 +16,12 @@ import java.util.List;
 
 @Service
 public class QueryService {
+
+	private final IndexAdvisor indexAdvisor;
+
+	public QueryService(IndexAdvisor indexAdvisor) {
+		this.indexAdvisor = indexAdvisor;
+	}
 
 	public AnalyzeResponse analyze(String sql) {
 
@@ -62,6 +69,9 @@ public class QueryService {
 
 		List<OptimizationFinding> findings = engine.run(select);
 
+		// 6. INDEX ANALYSIS (verifies the filter hint against real indexes)
+		indexAdvisor.advise(select, findings);
+
 		// plain strings kept for backward compatibility
 		List<String> recommendations = new ArrayList<>();
 
@@ -70,7 +80,7 @@ public class QueryService {
 		}
 
 
-		// 6. RESPONSE
+		// 7. RESPONSE
 		return new AnalyzeResponse(tokens, statement.toString(),
 				select.getTable().getTableName(), select.getColumns(),
 				whereCondition, findings, recommendations);

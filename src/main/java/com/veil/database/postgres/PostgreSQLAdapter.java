@@ -76,4 +76,15 @@ public class PostgreSQLAdapter implements DatabaseAdapter {
                 ORDER BY tablename, indexname
                 """);
     }
+
+    @Override
+    public List<Map<String, Object>> getIndexesForTable(String tableName) {
+        return jdbcTemplate.queryForList("""
+                SELECT indexname, indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = ?
+                ORDER BY indexname
+                """, tableName);
+    }
 }

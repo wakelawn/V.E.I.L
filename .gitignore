@@ -75,3 +75,15 @@ Dockerfile*
 
 # Local application properties that may contain secrets
 src/main/resources/application-local.properties
+
+#md files
+HELP.md
+testing.md
+veil-frntend-track.md
+AI-HANDOFF.md
+plan-analysis.md
+optimization-engine.md
+index-analysis.md
+connections-api.md
+integration-tests.md
+

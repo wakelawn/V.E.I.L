@@ -107,6 +107,10 @@ PostgreSQL EXPLAIN
 | Deeper Plan Analysis (PlanAnalyzer — bottleneck by self-cost, Seq Scan + filter insight) | ✅ |
 | Cost Analysis (CostAnalyzer — per-node cost shares, category breakdown) | ✅ |
 | Optimization Engine (OptimizationRule engine, 4 AST rules, structured findings with severity) | ✅ |
+| Index Analysis (IndexAdvisor — verifies filter hints against real pg_indexes, emits CREATE INDEX suggestions) | ✅ |
+| Connections API (`/api/connections` — registry, tester, password-safe views, 5 endpoints) | ✅ |
+| Connections UI wiring (dashboard dropdown + Add-Connection modal use the real API; health status from /api/database/health) | ✅ |
+| Integration Tests (MockMvc: web API without DB + DB-backed flows gated on DB_PASSWORD) | ✅ |
 | REST API Core (`/api/analyze`, `/api/explain`, `/api/database`, `/api/database/health`) | ✅ |
 | CORS Configuration       | ✅     |
 | Dashboard Frontend (HTML/CSS/JS) | ✅ |
@@ -127,7 +131,7 @@ PostgreSQL EXPLAIN
 | React Auth UI (veil-auth) | ⏳    |
 | AI Explanation Layer     | ⏳     |
 | MySQL / SQLite Adapters  | ⏳     |
-| Integration Tests (explain endpoint, controllers) | ⏳ |
+| Integration Tests (explain endpoint, controllers) | ✅ (Phase 11) |
 
 ### Current Important Milestone
 
@@ -170,17 +174,27 @@ DONE (exists in code)
 - com.veil.analysis                       → OptimizationEngine,
                                             OptimizationRule, OptimizationFinding,
                                             rules: SelectStar, FilterIndex,
-                                            NoFilter, Sort
+                                            NoFilter, Sort; FilterColumns walk;
+                                            IndexAdvisor + IndexInspector /
+                                            PostgreSQLIndexInspector (Phase 8)
 - com.veil.config                         → CorsConfig, JacksonConfig,
-                                            ApiExceptionHandler (400s with
-                                            {"error": ...} messages)
+                                            ApiExceptionHandler (400/404/503
+                                            with {"error": ...} messages)
+- com.veil.connections                    → ConnectionsController,
+                                            ConnectionRegistry (in-memory),
+                                            ConnectionTester, SavedConnection,
+                                            ConnectionView (no password)
 - com.veil.lexer.LexException             → lexer errors are typed, not bare
                                             RuntimeException
-- src/test/java                           → 41 JUnit tests passing
+- src/test/java                           → 67 JUnit tests passing
                                             (10 lexer + 13 parser + 7
-                                            optimization engine + 5 plan
-                                            analysis + 5 cost analysis
-                                            + 1 context)
+                                            optimization engine + 8 index
+                                            analysis + 5 connections
+                                            + 5 plan analysis + 5 cost
+                                            analysis + 9 web API
+                                            integration + 4 DB-backed
+                                            integration (skipped without
+                                            DB_PASSWORD) + 1 context)
 - static/                                 → dashboard + login wired to real
                                             backend: /api/analyze,
                                             /api/explain, /api/database,
@@ -592,7 +606,18 @@ VEIL
 │       │   ├── SelectStarRule.java
 │       │   ├── FilterIndexRule.java
 │       │   ├── NoFilterRule.java
-│       │   └── SortRule.java
+│       │   ├── SortRule.java
+│       │   ├── FilterColumns.java
+│       │   ├── IndexAdvisor.java
+│       │   ├── IndexInspector.java
+│       │   └── PostgreSQLIndexInspector.java
+│       │
+│       ├── connections
+│       │   ├── ConnectionsController.java
+│       │   ├── ConnectionRegistry.java
+│       │   ├── ConnectionTester.java
+│       │   ├── SavedConnection.java
+│       │   └── ConnectionView.java
 │       │
 │       ├── ast
 │       │   ├── Statement.java
@@ -647,10 +672,16 @@ VEIL
 │       ├── parser
 │       │   └── ParserTest.java
 │       ├── analysis
-│       │   └── OptimizationEngineTest.java
-│       └── explain
-│           ├── PlanAnalyzerTest.java
-│           └── CostAnalyzerTest.java
+│       │   ├── OptimizationEngineTest.java
+│       │   └── IndexAdvisorTest.java
+│       ├── connections
+│       │   └── ConnectionRegistryTest.java
+│       ├── explain
+│       │   ├── PlanAnalyzerTest.java
+│       │   └── CostAnalyzerTest.java
+│       └── api
+│           ├── WebApiIntegrationTest.java
+│           └── DatabaseBackedIntegrationTest.java
 │
 ├── pom.xml
 └── target
@@ -859,10 +890,18 @@ VEIL can eventually interpret these operations and present them in a simpler for
 | Cost breakdown | Per-node list of self costs with share % and a work category (scan/join/sort/aggregate/other), produced by CostAnalyzer |
 | Optimization rule | One AST-level check (e.g. SelectStarRule) that appends findings to a shared list; the engine runs all rules in order |
 | Finding | Structured advice entry: ruleId, severity (high/medium/low), title, message, optional suggestion SQL |
+| Leading column | The first column of an index; a filter on it can use the index directly (B-tree ordering) |
+| Index coverage | A filtered column is covered when it is the leading column of some index on the same table |
+| IndexAdvisor | Phase 8 component verifying FILTER_INDEX hints against real indexes; emits CREATE INDEX suggestions for uncovered columns |
 | DataSource | A configured source of database connections; each saved connection may need its own DataSource (planned) |
 | JdbcTemplate | Spring JDBC helper for executing SQL through a DataSource |
 | CORS | Browser security mechanism controlling cross-origin requests |
-| Connection Registry | (Planned) named registry holding per-connection DataSources and adapters |
+| IndexAdvisor | Phase 8 component verifying FILTER_INDEX hints against real indexes; emits CREATE INDEX suggestions for uncovered columns |
+| Connection Registry | Holds saved connections with ids; in Phase 9 realized in-memory by ConnectionRegistry (persistence can be added later without changing callers) |
+| ConnectionView | Password-free response shape of a saved connection; responses are built only from it so the password never leaves the server |
+| Integration test | Full Spring context + MockMvc: real HTTP-shaped requests through controllers, JSON conversion and the error handler included |
+| MockMvc | Spring's test tool that calls controllers like a browser would, without opening a network port |
+| Test gating | @EnabledIfEnvironmentVariable: DB-backed tests run only when DB_PASSWORD is set, otherwise they are skipped (not failed) |
 | Deterministic analysis | Rule-based findings computed from AST or plan facts; never invented |
 | AI explanation layer | (Planned) model-generated commentary that explains deterministic findings but must not fabricate costs, rows, indexes, or schema facts |
 
@@ -966,10 +1005,10 @@ Index Recommendations
 | Phase 5  | Execution Plan Analysis              | ✅ Done (bottleneck by self-cost, filter/sort-key capture, Seq Scan + filter insights) |
 | Phase 6  | Cost Analysis                        | ✅ Done (CostAnalyzer: per-node self-cost shares, category breakdown) |
 | Phase 7  | Optimization Engine                  | ✅ Done (com.veil.analysis: OptimizationRule engine, 4 rules, structured findings with severity) |
-| Phase 8  | Index Analysis                       | ⏳ Planned      |
-| Phase 9  | REST API                             | 🟡 Core endpoints + error handling done; connections API pending |
-| Phase 10 | Frontend                             | 🟡 Dashboard wired to backend; React auth UI pending |
-| Phase 11 | Testing + Documentation              | 🟡 Unit tests + docs in place; integration tests pending |
+| Phase 8  | Index Analysis                       | ✅ Done (IndexAdvisor + PostgreSQLIndexInspector: leading-column check against pg_indexes, verified CREATE INDEX suggestions) |
+| Phase 9  | REST API                             | ✅ Done (core endpoints + error handling + connections API: registry, tester, controller, 404 mapping) |
+| Phase 10 | Frontend                             | 🟡 Connections UI wired to real /api/connections (dropdown, Add-Connection modal, health status); React auth UI deferred by user decision |
+| Phase 11 | Testing + Documentation              | ✅ Done (integration tests: 9 web API + 4 DB-backed MockMvc tests; teaching docs per phase) |
 
 ---
 

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 // returns parse/validation errors as HTTP 400 with a readable message
 // so the frontend error box can show them instead of a raw 500
@@ -42,5 +43,11 @@ public class ApiExceptionHandler {
 	public ResponseEntity<Map<String, String>> onConnection(CannotGetJdbcConnectionException e) {
 		String message = e.getMostSpecificCause().getMessage();
 		return ResponseEntity.status(503).body(Map.of("error", "Database connection failed: " + message));
+	}
+
+	// a requested resource does not exist (e.g. unknown connection id)
+	@ExceptionHandler(NoSuchElementException.class)
+	public ResponseEntity<Map<String, String>> onMissing(NoSuchElementException e) {
+		return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
 	}
 }

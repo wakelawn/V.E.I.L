@@ -18,4 +18,8 @@ public interface DatabaseAdapter {
 
     List<Map<String, Object>> getIndexes();
 
+    // indexes of one table, including their definitions
+    // (used by index analysis to see which columns are covered)
+    List<Map<String, Object>> getIndexesForTable(String tableName);
+
 }

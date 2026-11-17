@@ -207,13 +207,16 @@ LIMIT 5;</textarea>
 <div class="modal" id="connModal" hidden>
   <div class="modal-box">
     <h2>Add Connection</h2>
-    <label>Name<input id="newConnName" placeholder="e.g. Staging MySQL"></label>
+    <label>Name<input id="newConnName" placeholder="e.g. Local PostgreSQL"></label>
     <label>Type
       <select id="newConnType">
         <option>PostgreSQL</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option>
       </select>
     </label>
     <label>Host<input id="newConnHost" placeholder="localhost:5432"></label>
+    <label>Database<input id="newConnDatabase" placeholder="e.g. v.e.i.l"></label>
+    <label>Username<input id="newConnUsername" placeholder="postgres"></label>
+    <label>Password<input id="newConnPassword" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"></label>
     <div class="modal-actions">
       <button class="btn-ghost" id="cancelConn">Cancel</button>
       <button class="btn-primary" id="saveConn">Save</button>
@@ -249,8 +252,8 @@ LIMIT 5;</textarea>
 
 document.querySelector('[data-nav="connections"]').addEventListener('click', function (e) {
   e.preventDefault();               // stops the <a> from jumping or navigating
-  alert('Database Connections: coming soon!');
-
+  // opens the real Add Connection modal (wired to /api/connections)
+  document.getElementById('addConnBtn').click();
 
 });
 

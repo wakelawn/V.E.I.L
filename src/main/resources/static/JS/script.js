@@ -29,10 +29,101 @@
     },
   };
 
-  /* ================= CONNECTIONS ================= */
-  const connections = [
-    { name: 'Local PostgreSQL', type: 'PostgreSQL', host: 'localhost:5432', online: true },
-  ];
+  /* ================= CONNECTIONS (real, from /api/connections) ================= */
+  let savedConnections = [];
+  const connSelect = $('#connSelect');
+
+  // shared toast for short messages (recommendation clicks + connection actions)
+  let toastTimer;
+  function toast(text) {
+    const t = $('#recToast');
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
+  }
+
+  async function loadConnections() {
+    try {
+      savedConnections = await API.get('/api/connections');
+    } catch {
+      // the list simply stays empty; the rest of the dashboard works
+      savedConnections = [];
+    }
+    renderConnections();
+  }
+
+  function renderConnections() {
+    if (!savedConnections.length) {
+      connSelect.innerHTML = '<option value="-1">No saved connections yet</option>';
+    } else {
+      connSelect.innerHTML = savedConnections
+        .map((c, i) => `<option value="${i}">${esc(c.name)}</option>`)
+        .join('');
+    }
+    applyConnection();
+  }
+
+  function applyConnection() {
+    const c = savedConnections[connSelect.value];
+    // the analysis always runs on the backend's default connection,
+    // so the name shown is the saved connection (or the default)
+    $('#sideConn').textContent = c ? c.name : 'Default PostgreSQL';
+    $('#dbType').value = 'PostgreSQL';
+    // Connected/Offline status comes from loadHealth(), not from this list
+  }
+  connSelect.addEventListener('change', applyConnection);
+
+  const modal = $('#connModal');
+  $('#addConnBtn').addEventListener('click', () => { modal.hidden = false; $('#newConnName').focus(); });
+  $('#cancelConn').addEventListener('click', () => { modal.hidden = true; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  $('#saveConn').addEventListener('click', async () => {
+    const name = $('#newConnName').value.trim();
+    const hostPort = $('#newConnHost').value.trim();
+    const databaseName = $('#newConnDatabase').value.trim();
+    const username = $('#newConnUsername').value.trim();
+    const password = $('#newConnPassword').value;
+
+    if (!name || !hostPort || !databaseName || !username) {
+      toast('Please fill in name, host, database and username.');
+      return;
+    }
+
+    // only PostgreSQL exists in the backend today - be honest about it
+    if ($('#newConnType').value !== 'PostgreSQL') {
+      toast('Only PostgreSQL connections are supported right now.');
+      return;
+    }
+
+    // the host field holds "host" or "host:port"
+    const colon = hostPort.lastIndexOf(':');
+    const host = colon >= 0 ? hostPort.slice(0, colon) : hostPort;
+    const port = colon >= 0 ? (Number(hostPort.slice(colon + 1)) || 5432) : 5432;
+
+    const btn = $('#saveConn');
+    btn.disabled = true;
+    try {
+      const saved = await API.post('/api/connections',
+        { name, host, port, databaseName, username, password });
+
+      modal.hidden = true;
+      ['#newConnName', '#newConnHost', '#newConnDatabase',
+       '#newConnUsername', '#newConnPassword'].forEach((s) => ($(s).value = ''));
+
+      await loadConnections();
+
+      // select the connection we just saved
+      const idx = savedConnections.findIndex((c) => c.id === saved.id);
+      if (idx >= 0) { connSelect.value = idx; applyConnection(); }
+
+      toast(`Connection "${saved.name}" saved.`);
+    } catch (e) {
+      toast(e.message);   // readable 400 from the backend
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   /* ================= TABS (generic) =================
      A button with data-group + data-target shows the pane with that id
@@ -50,38 +141,6 @@
     item.addEventListener('click', () => {
       $$('.nav-item').forEach((i) => i.classList.toggle('active', i === item));
     });
-  });
-
-  /* ================= CONNECTIONS ================= */
-  const connSelect = $('#connSelect');
-
-  function renderConnections(selectedIndex = 0) {
-    connSelect.innerHTML = connections.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join('');
-    connSelect.value = selectedIndex;
-    applyConnection();
-  }
-  function applyConnection() {
-    const c = connections[connSelect.value];
-    $('#connStatus').textContent = c.online ? 'Connected' : 'Offline';
-    $('#connDot').className = 'dot ' + (c.online ? 'ok' : 'off');
-    $('#sideStatus').textContent = c.online ? 'Connected' : 'Offline';
-    $('#sideStatus').style.color = c.online ? '' : 'var(--bad)';
-    $('#sideConn').textContent = c.name;
-    $('#dbType').value = c.type;
-  }
-  connSelect.addEventListener('change', applyConnection);
-
-  const modal = $('#connModal');
-  $('#addConnBtn').addEventListener('click', () => { modal.hidden = false; $('#newConnName').focus(); });
-  $('#cancelConn').addEventListener('click', () => { modal.hidden = true; });
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
-  $('#saveConn').addEventListener('click', () => {
-    const name = $('#newConnName').value.trim();
-    if (!name) { $('#newConnName').focus(); return; }
-    connections.push({ name, type: $('#newConnType').value, host: $('#newConnHost').value.trim(), online: true });
-    renderConnections(connections.length - 1);
-    ['#newConnName', '#newConnHost'].forEach((s) => ($(s).value = ''));
-    modal.hidden = true;
   });
 
   /* ================= EDITOR ================= */
@@ -244,7 +303,6 @@
     return out;
   }
 
-  let recToastTimer;
   function renderRecs(recs) {
     $('#recCount').textContent = `(${recs.length})`;
     $('#recList').innerHTML = recs.map((r, i) => `
@@ -261,13 +319,9 @@
         </div>
         <pre class="rec-extra" id="rec-extra-${i}" hidden>${esc(r.sql)}</pre>
       </div>`).join('');
-    const toast = $('#recToast');
     $$('[data-rec-message]').forEach((button) => button.addEventListener('click', () => {
       const rec = recs[Number(button.dataset.recMessage)];
-      toast.textContent = `${rec.title}: ${rec.text}`;
-      toast.hidden = false;
-      clearTimeout(recToastTimer);
-      recToastTimer = setTimeout(() => { toast.hidden = true; }, 4000);
+      toast(`${rec.title}: ${rec.text}`);
     }));
     $$('[data-rec]').forEach((b) => b.addEventListener('click', () => {
       const box = $('#rec-extra-' + b.dataset.rec);
@@ -365,25 +419,28 @@
   $('#schemaSearch').addEventListener('input', (e) => renderSchema(e.target.value.trim()));
 
   /* ================= HEALTH ================= */
+  const typeMap = { POSTGRESQL: 'PostgreSQL', MYSQL: 'MySQL', SQLITE: 'SQLite', MONGODB: 'Mongodb' };
+
   async function loadHealth() {
+    // the status always reflects the backend's default connection,
+    // because that is the connection the analysis actually uses
     let ok = false;
-    const typeMap = { POSTGRESQL: 'PostgreSQL', MYSQL: 'MySQL', SQLITE: 'SQLite', MONGODB: 'Mongodb' };
-    let type = connections[0].type;
     try {
       const h = await API.get('/api/database/health');
       ok = !!h.connected;
-      if (typeMap[h.databaseType]) type = typeMap[h.databaseType];
     } catch {
       // leave offline; the error box is not needed for a status check
     }
 
-    connections[0].online = ok;
-    connections[0].type = type;
-    applyConnection();
+    $('#connStatus').textContent = ok ? 'Connected' : 'Offline';
+    $('#connDot').className = 'dot ' + (ok ? 'ok' : 'off');
+    $('#sideStatus').textContent = ok ? 'Connected' : 'Offline';
+    $('#sideStatus').style.color = ok ? '' : 'var(--bad)';
+    if (!ok) $('#dbType').value = typeMap.POSTGRESQL;
   }
 
   /* ================= INIT ================= */
-  renderConnections(0);
+  loadConnections();
   loadHealth();
   loadSchema();
   refreshEditor();
