@@ -28,7 +28,10 @@
           loggedInAt: Date.now(),
           remember: !!remember
         };
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        // "Remember me" -> localStorage (survives closing the tab);
+        // otherwise sessionStorage (cleared when the tab closes)
+        const store = remember ? localStorage : sessionStorage;
+        store.setItem(STORAGE_KEY, JSON.stringify(session));
         window.location.href = 'index.html';
       } else {
         if (errorBox) { errorBox.textContent = 'Invalid email or password.'; errorBox.style.display = 'block'; }
@@ -37,8 +40,10 @@
 
     /** Check if a valid session exists. Returns the session object or null. */
     getSession: function () {
+      // sessions may live in either store, remember-me first
       try {
-        const raw = sessionStorage.getItem(STORAGE_KEY);
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) raw = sessionStorage.getItem(STORAGE_KEY);
         if (!raw) return null;
         const session = JSON.parse(raw);
         return session && session.user ? session : null;
@@ -49,6 +54,7 @@
 
     /** Clear the session and redirect to login.html. */
     logout: function () {
+      localStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY);
       window.location.href = 'login.html';
     },

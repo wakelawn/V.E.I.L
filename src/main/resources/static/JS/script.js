@@ -47,8 +47,9 @@
     try {
       savedConnections = await API.get('/api/connections');
     } catch {
-      // the list simply stays empty; the rest of the dashboard works
-      savedConnections = [];
+      // API unreachable - fall back to the real backend default
+      // connection instead of claiming "no saved connections"
+      savedConnections = [{ name: 'Default PostgreSQL' }];
     }
     renderConnections();
   }
@@ -74,10 +75,26 @@
   }
   connSelect.addEventListener('change', applyConnection);
 
+  // the type dropdown is informational: it shows the type of the
+  // connection the backend actually runs on, so changing it manually
+  // snaps back to the detected value instead of doing nothing silently
+  $('#dbType').addEventListener('change', () => {
+    toast('The backend runs on PostgreSQL - the type is detected automatically.');
+    loadHealth();
+  });
+
   const modal = $('#connModal');
   $('#addConnBtn').addEventListener('click', () => { modal.hidden = false; $('#newConnName').focus(); });
   $('#cancelConn').addEventListener('click', () => { modal.hidden = true; });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  // Enter in any modal field saves; Escape closes
+  $$('#connModal input').forEach((field) => field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#saveConn').click(); }
+  }));
+  document.addEventListener('keydown', (e) => {
+    // Escape closes whichever modal is open (connection / saved / AI)
+    if (e.key === 'Escape') $$('.modal').forEach((m) => { m.hidden = true; });
+  });
   $('#saveConn').addEventListener('click', async () => {
     const name = $('#newConnName').value.trim();
     const hostPort = $('#newConnHost').value.trim();
@@ -136,10 +153,35 @@
     });
   });
 
-  /* Sidebar nav highlight */
+  /* Sidebar nav: every item does something real
+     analyzer -> already on this page (stays highlighted)
+     connections -> opens the Add Connection modal
+     schema -> refreshes the schema and pulses its card
+     saved -> opens the Saved Queries modal
+     ai -> opens the AI summary modal */
   $$('.nav-item').forEach((item) => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
       $$('.nav-item').forEach((i) => i.classList.toggle('active', i === item));
+      switch (item.dataset.nav) {
+        case 'connections':
+          modal.hidden = false;
+          $('#newConnName').focus();
+          break;
+        case 'schema':
+          loadSchema();
+          pulseCard($('#schemaTables').closest('.card'));
+          toast('Schema refreshed from the database.');
+          break;
+        case 'saved':
+          savedModal.hidden = false;
+          $('#savedName').focus();
+          break;
+        case 'ai':
+          openRecModal();
+          break;
+        // "analyzer" needs no action - this IS the analyzer page
+      }
     });
   });
 
@@ -191,6 +233,15 @@
   function showError(msg) { const b = $('#errorBox'); b.textContent = msg; b.hidden = false; }
   function hideError() { $('#errorBox').hidden = true; }
 
+  // drop text (a table name from the schema list) at the caret position
+  function insertAtCursor(text) {
+    const start = input.selectionStart, end = input.selectionEnd;
+    input.value = input.value.slice(0, start) + text + input.value.slice(end);
+    input.selectionStart = input.selectionEnd = start + text.length;
+    input.focus();
+    refreshEditor();
+  }
+
   /* ================= PLAN (real EXPLAIN from the backend) ================= */
   const NODE_DESC = {
     'Limit':          'Stops after the requested number of rows have been produced.',
@@ -229,6 +280,9 @@
   const flatten = (n, depth = 0, out = []) => { out.push({ n, depth }); n.children.forEach((c) => flatten(c, depth + 1, out)); return out; };
   let currentPlan = null, selectedId = null;
 
+  // plain EXPLAIN has no real timings - show '-' instead of a fake 0..0 ms
+  const timeText = (n) => (n.time[0] || n.time[1]) ? `${n.time[0]}..${n.time[1]} ms` : '-';
+
   function renderPlan(plan) {
     currentPlan = plan;
     selectedId = plan.id;
@@ -236,7 +290,7 @@
     $('#planTree').innerHTML = flatten(plan).map(({ n, depth }) => `
       <div class="plan-node k-${n.kind}" data-id="${n.id}" style="margin-left:${depth * 18}px">
         <div><b>${esc(n.type)} ${esc(n.label)}</b>
-        <small>cost=${n.startup}..${n.total} rows=${n.rows} time=${n.time[0]}..${n.time[1]} ms</small></div>
+        <small>cost=${n.startup}..${n.total} rows=${n.rows} time=${timeText(n)}</small></div>
         <span class="rows-badge">${n.rows} rows</span>
       </div>`).join('');
 
@@ -245,7 +299,7 @@
     const viz = (n) => `<div class="viz-branch">
       <div class="viz-node k-${n.kind}" data-id="${n.id}"><b>${esc(n.type)}</b>
         ${n.label ? `<small>${esc(n.label.replace('on ', ''))}</small>` : ''}
-        <small>${n.rows} rows</small><small>${n.time[0]}..${n.time[1]} ms</small></div>
+        <small>${n.rows} rows</small><small>${timeText(n)}</small></div>
       ${n.children.length ? `<div class="viz-arrow"></div><div class="viz-children">${n.children.map(viz).join('')}</div>` : ''}
     </div>`;
     $('#viz').innerHTML = viz(plan);
@@ -260,7 +314,7 @@
     $$('.plan-node, .viz-node').forEach((el) => el.classList.toggle('selected', +el.dataset.id === id));
     $('#planDetails').innerHTML = [
       ['Node Type', n.type], ['Startup Cost', n.startup], ['Total Cost', n.total],
-      ['Estimated Rows', n.rows], ['Actual Rows', '-'], ['Node Time', `${n.time[0]}..${n.time[1]} ms`],
+      ['Estimated Rows', n.rows], ['Actual Rows', '-'], ['Node Time', timeText(n)],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
     $('#planDesc').textContent = NODE_DESC[n.type] || '';
   }
@@ -408,15 +462,125 @@
     const f = filter.toLowerCase();
     $('#tableList').innerHTML = schemaCache.tables
       .filter((t) => t.table_name.toLowerCase().includes(f))
-      .map((t) => `<li><span>&#9638; ${esc(t.table_name)}</span></li>`)
+      .map((t) => `<li data-table="${esc(t.table_name)}"><span>&#9638; ${esc(t.table_name)}</span></li>`)
       .join('');
 
     $('#indexList').innerHTML = schemaCache.indexes
       .filter((i) => (i.indexname + i.tablename).toLowerCase().includes(f))
-      .map((i) => `<li><span>${esc(i.indexname)}</span><span class="meta">${esc(i.tablename)}</span></li>`)
+      .map((i) => `<li data-index="${esc(i.indexname)}" data-idx-table="${esc(i.tablename)}">`
+        + `<span>${esc(i.indexname)}</span><span class="meta">${esc(i.tablename)}</span></li>`)
       .join('');
+
+    // clicking a table inserts its name into the editor at the caret
+    $$('#tableList li').forEach((li) => li.addEventListener('click', () => {
+      insertAtCursor(li.dataset.table);
+      toast(`Inserted ${li.dataset.table} into the editor.`);
+    }));
+
+    // clicking an index explains where it lives
+    $$('#indexList li').forEach((li) => {
+      li.addEventListener('click', () => {
+        toast(`Index ${li.dataset.index} is on table ${li.dataset.idxTable}.`);
+      });
+      // index name + table meta side by side (row layout)
+      li.style.display = 'flex';
+      li.style.flexDirection = 'row';
+      li.style.alignItems = 'center';
+      li.style.justifyContent = 'space-between';
+      li.style.gap = '8px';
+    });
   }
   $('#schemaSearch').addEventListener('input', (e) => renderSchema(e.target.value.trim()));
+
+  /* ================= AI SUMMARY MODAL =================
+     The sidebar "AI Recommendations" item opens the plan summary
+     (the same text the Recommendations card shows) in a modal. */
+  const recModal = $('#recModal');
+
+  function openRecModal() {
+    const text = $('#aiText').textContent.trim();
+    $('#recModalText').textContent = text
+      || 'Run Analyze Query first - the AI summary of the execution plan will appear here.';
+    recModal.hidden = false;
+  }
+
+  $('#recModalClose').addEventListener('click', () => { recModal.hidden = true; });
+  recModal.addEventListener('click', (e) => { if (e.target === recModal) recModal.hidden = true; });
+
+  // brief highlight around a card, used when the sidebar refreshes it
+  function pulseCard(card) {
+    if (!card) return;
+    card.classList.remove('pulse');
+    void card.offsetWidth;          // restart the CSS animation
+    card.classList.add('pulse');
+    card.addEventListener('animationend', () => card.classList.remove('pulse'), { once: true });
+  }
+
+  /* ================= SAVED QUERIES (localStorage) =================
+     Saved queries live only in this browser for now - localStorage
+     keeps them across page loads, but they are NOT on the server. */
+  const savedModal = $('#savedModal');
+  const SAVED_KEY = 'veil_saved_queries';
+
+  const readSaved = () => {
+    try { return JSON.parse(localStorage.getItem(SAVED_KEY)) || []; }
+    catch { return []; }
+  };
+  const writeSaved = (list) => localStorage.setItem(SAVED_KEY, JSON.stringify(list));
+
+  function renderSaved() {
+    const list = readSaved();
+    $('#savedList').innerHTML = list.length
+      ? list.map((q, i) => `
+          <li data-saved="${i}">
+            <span>&#9873; ${esc(q.name)}</span>
+            <span class="meta">${esc(q.sql.length > 40 ? q.sql.slice(0, 40) + '\u2026' : q.sql)}</span>
+            <button class="btn-small" type="button" data-saved-del="${i}">Delete</button>
+          </li>`).join('')
+      : '<li><span>No saved queries yet</span>'
+        + '<span class="meta">Type a query in the editor, then save it here</span></li>';
+
+    // deleting a saved query (does not load it)
+    $$('[data-saved-del]').forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const list = readSaved();
+      const [removed] = list.splice(Number(b.dataset.savedDel), 1);
+      writeSaved(list);
+      renderSaved();
+      toast(`Deleted "${removed.name}".`);
+    }));
+
+    // clicking a saved query loads it into the editor and analyzes it
+    $$('[data-saved]').forEach((li) => li.addEventListener('click', () => {
+      const q = readSaved()[Number(li.dataset.saved)];
+      if (!q) return;
+      input.value = q.sql;
+      refreshEditor();
+      savedModal.hidden = true;
+      analyze();
+      toast(`Loaded "${q.name}".`);
+    }));
+  }
+
+  $('#saveQueryBtn').addEventListener('click', () => {
+    const sql = input.value.trim();
+    if (!sql) { toast('Nothing to save - the editor is empty.'); return; }
+
+    const name = $('#savedName').value.trim() || `Query ${new Date().toLocaleString()}`;
+    const list = readSaved();
+    list.unshift({ name, sql, savedAt: Date.now() });
+    writeSaved(list);
+
+    $('#savedName').value = '';
+    renderSaved();
+    toast(`Saved "${name}".`);
+  });
+
+  $('#cancelSaved').addEventListener('click', () => { savedModal.hidden = true; });
+  savedModal.addEventListener('click', (e) => { if (e.target === savedModal) savedModal.hidden = true; });
+  $('#savedName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#saveQueryBtn').click(); }
+  });
 
   /* ================= HEALTH ================= */
   const typeMap = { POSTGRESQL: 'PostgreSQL', MYSQL: 'MySQL', SQLITE: 'SQLite', MONGODB: 'Mongodb' };
@@ -425,9 +589,11 @@
     // the status always reflects the backend's default connection,
     // because that is the connection the analysis actually uses
     let ok = false;
+    let type = 'PostgreSQL';
     try {
       const h = await API.get('/api/database/health');
       ok = !!h.connected;
+      if (typeMap[h.databaseType]) type = typeMap[h.databaseType];
     } catch {
       // leave offline; the error box is not needed for a status check
     }
@@ -436,7 +602,7 @@
     $('#connDot').className = 'dot ' + (ok ? 'ok' : 'off');
     $('#sideStatus').textContent = ok ? 'Connected' : 'Offline';
     $('#sideStatus').style.color = ok ? '' : 'var(--bad)';
-    if (!ok) $('#dbType').value = typeMap.POSTGRESQL;
+    $('#dbType').value = type;
   }
 
   /* ================= INIT ================= */

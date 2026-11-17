@@ -110,6 +110,7 @@ PostgreSQL EXPLAIN
 | Index Analysis (IndexAdvisor — verifies filter hints against real pg_indexes, emits CREATE INDEX suggestions) | ✅ |
 | Connections API (`/api/connections` — registry, tester, password-safe views, 5 endpoints) | ✅ |
 | Connections UI wiring (dashboard dropdown + Add-Connection modal use the real API; health status from /api/database/health) | ✅ |
+| Dashboard functional-elements pass (every clickable element wired: rec/AI modal, Saved Queries modal w/ localStorage, Schema Explorer refresh + pulse, clickable schema lists inserting into the editor, Escape closes any modal — no `alert()` placeholders left) | ✅ |
 | Integration Tests (MockMvc: web API without DB + DB-backed flows gated on DB_PASSWORD) | ✅ |
 | REST API Core (`/api/analyze`, `/api/explain`, `/api/database`, `/api/database/health`) | ✅ |
 | CORS Configuration       | ✅     |
@@ -1007,7 +1008,7 @@ Index Recommendations
 | Phase 7  | Optimization Engine                  | ✅ Done (com.veil.analysis: OptimizationRule engine, 4 rules, structured findings with severity) |
 | Phase 8  | Index Analysis                       | ✅ Done (IndexAdvisor + PostgreSQLIndexInspector: leading-column check against pg_indexes, verified CREATE INDEX suggestions) |
 | Phase 9  | REST API                             | ✅ Done (core endpoints + error handling + connections API: registry, tester, controller, 404 mapping) |
-| Phase 10 | Frontend                             | 🟡 Connections UI wired to real /api/connections (dropdown, Add-Connection modal, health status); React auth UI deferred by user decision |
+| Phase 10 | Frontend                             | ✅ Connections UI wired to real /api/connections; all dashboard elements functional (AI rec modal, Saved Queries w/ localStorage, Schema Explorer refresh, clickable schema lists); React auth UI deferred by user decision |
 | Phase 11 | Testing + Documentation              | ✅ Done (integration tests: 9 web API + 4 DB-backed MockMvc tests; teaching docs per phase) |
 
 ---

@@ -30,7 +30,10 @@
   border-left: 3px solid transparent;
   user-select: none;
 }
-.nav-item.active { border-left-style: solid; }
+.nav-item:hover { background: rgb(255 255 255 / 10%); }
+/* the active item gets a visible white bar + soft fill
+   (the border color was transparent before, so "active" showed nothing) */
+.nav-item.active { border-left-color: #ffffff; background: rgb(255 255 255 / 14%); }
 .ico { width: 16px; text-align: center; }
  
 .side-foot {

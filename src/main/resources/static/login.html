@@ -53,17 +53,17 @@
       font-family: inherit; font-size: 13px;
     }
     .field input:focus { border-color: var(--accent); }
-    .pw-wrap { position: relative; display: flex; align-items: center; }
+    .pw-wrap { position: relative; }
+    .pw-wrap input { width: 100%; padding-right: 36px; }
     .pw-toggle {
-      position: absolute; right: 10px; background: none; border: 0;
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: 0;
       color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px;
     }
     .pw-toggle:hover { color: var(--accent); }
-    .opts { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+    .opts { display: flex; align-items: center; font-size: 12px; }
     .remember { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; font-size: 12px; }
     .remember input { accent-color: var(--accent); }
-    .forgot { color: var(--accent); text-decoration: none; }
-    .forgot:hover { text-decoration: underline; }
     .btn-login {
       width: 100%; padding: 10px 16px; border: 1px solid var(--accent);
       border-radius: 8px; color: #ffffff; background: var(--accent);
@@ -71,11 +71,6 @@
     }
     .btn-login:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
     .btn-login:active { transform: translateY(1px); }
-    .divider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); margin: 4px 0; }
-    .divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid var(--border); }
-    .footer { text-align: center; font-size: 12px; color: var(--muted); }
-    .footer a { color: var(--accent); text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
     .error-msg {
       display: none; padding: 8px 12px; border: 1px solid #e8c8c0;
       border-radius: 8px; color: var(--bad); background: #fff8f6;
@@ -100,28 +95,32 @@
           <label for="loginEmail">Email</label>
           <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email">
         </div>
-        <div class="field pw-wrap">
+        <div class="field">
           <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password">
-          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">&#128065;</button>
+          <div class="pw-wrap">
+            <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password">
+            <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">&#128065;</button>
+          </div>
         </div>
         <div class="opts">
           <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
-          <a href="#" class="forgot" id="forgotLink">Forgot password?</a>
         </div>
         <button class="btn-login" id="loginBtn">Sign in</button>
-        <div class="divider"><span>or continue with</span></div>
-        <div class="footer">Don't have an account? <a href="#" id="signupLink">Sign up</a></div>
       </div>
     </div>
   </div>
   <script src="JS/auth.js"></script>
   <script>
+    // already signed in? go straight to the dashboard
+    window.VEILAuth.redirectIfAuthed();
     document.getElementById('pwToggle').addEventListener('click', function () {
       const inp = document.getElementById('loginPassword');
       const show = inp.type === 'password';
       inp.type = show ? 'text' : 'password';
-      this.textContent = show ? '&#128066;' : '&#128065;';
+      // textContent does not decode HTML entities - use the real
+      // unicode characters so the icon actually switches (eye = show,
+      // see-no-evil = hide)
+      this.textContent = show ? '\u{1F441}' : '\u{1F648}';
     });
 
     document.getElementById('loginBtn').addEventListener('click', (e) => {
@@ -138,14 +137,6 @@
         const remember = document.getElementById('rememberMe').checked;
         window.VEILAuth.login(email, password, remember);
       }
-    });
-    document.getElementById('forgotLink').addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Password reset: coming soon!');
-    });
-    document.getElementById('signupLink').addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Sign up: coming soon!');
     });
   </script>
 </body>

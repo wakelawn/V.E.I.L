@@ -114,7 +114,8 @@
   display: flex;
   flex-shrink: 0;
   gap: 4px;
-  padding: 0 10px;
+  /* aligns with card-body horizontal padding so tab columns line up with card content */
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -272,7 +273,7 @@
 .rec { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .rec-main {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
   align-items: start;
   gap: 6px;
 }
@@ -286,7 +287,7 @@
 .rec-text span { color: var(--muted); font-size: 10px; line-height: 1.4; }
 .impact { flex-shrink: 0; padding: 3px 7px; white-space: nowrap; }
 .rec-main > .impact { grid-column: 3; }
-.rec-main > .btn-small { grid-column: 2 / 4; justify-self: start; }
+.rec-main > .btn-small { grid-column: 4; justify-self: start; }
 .impact.high { color: #8f3027; background: #fbece8; font-weight: 600; }
 .impact.medium { color: #744a0c; background: #fbf2df; }
 .impact.low { color: #285333; background: #e8f2e7; }
@@ -341,6 +342,32 @@
 .modal-box h2, .modal-box h3 { font-size: 15px; }
 .modal-box label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 12px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* brief glow used when the sidebar refreshes a card (Schema Explorer) */
+@keyframes pulse-card {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(40 83 51 / 0%); }
+  45%      { box-shadow: 0 0 0 6px rgb(40 83 51 / 22%); }
+}
+.card.pulse { animation: pulse-card 900ms ease-out 2; }
+
+/* saved queries list: one row per query, delete button on the right */
+.saved-list { margin-top: 4px; max-height: 180px; overflow: auto; }
+.saved-list li {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.saved-list li > span:first-child { flex-shrink: 0; }
+.saved-list li .meta {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-list li button { flex-shrink: 0; }
 
 @media (max-width: 760px) {
   html, body { height: auto; min-height: 100%; overflow: auto; }

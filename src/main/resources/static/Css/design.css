@@ -16,6 +16,18 @@ html, body {
   font-size: 14px;
 }
 
+/* native controls (buttons, selects, inputs) render in the browser's
+   default font by default - make them follow the page theme instead,
+   feel clickable, and show a clear disabled state */
+button, select, input, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button { cursor: pointer; }
+button[disabled] { opacity: 0.6; cursor: default; }
+
 .app {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

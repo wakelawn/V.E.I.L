@@ -46,7 +46,7 @@
       <span class="dot ok"></span>
       <div>
         <div class="side-foot-status" id="sideStatus">Connected</div>
-        <div class="side-foot-name" id="sideConn">Production PostgreSQL</div>
+        <div class="side-foot-name" id="sideConn">Default PostgreSQL</div>
       </div>
     </div>
     <button class="btn-ghost" id="logoutBtn" style="margin-top:12px; width:100%; text-align:left;">
@@ -63,9 +63,7 @@
             <label for="connSelect">Database Connection</label>
             <div class="conn-select-wrap">
                 <select id ="connSelect">
-                    <option>Production PostgreSQL</option>
-                    <option>Staging MySQL</option>
-                    <option>Local SQLite</option>
+                    <option>Default PostgreSQL</option>
                 </select>
                 <span class="conn-status">
                     <span class="dot ok" id="connDot"></span>
@@ -216,7 +214,7 @@ LIMIT 5;</textarea>
     <label>Host<input id="newConnHost" placeholder="localhost:5432"></label>
     <label>Database<input id="newConnDatabase" placeholder="e.g. v.e.i.l"></label>
     <label>Username<input id="newConnUsername" placeholder="postgres"></label>
-    <label>Password<input id="newConnPassword" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"></label>
+    <label>Password<input id="newConnPassword" type="password" placeholder="••••••••"></label>
     <div class="modal-actions">
       <button class="btn-ghost" id="cancelConn">Cancel</button>
       <button class="btn-primary" id="saveConn">Save</button>
@@ -227,10 +225,24 @@ LIMIT 5;</textarea>
 <div class="modal" id="recModal" hidden>
   <div class="modal-box">
     <h3>AI Recommendations</h3>
-    <p class="desc">Your message here.</p>
+    <p class="desc" id="recModalText">Run Analyze Query first - the AI summary of the execution plan will appear here.</p>
     <div class="modal-actions">
       <button class="btn-primary" id="recModalClose" type="button">OK</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="savedModal" hidden>
+  <div class="modal-box">
+    <h2>Saved Queries</h2>
+    <label>Name
+      <input id="savedName" placeholder="e.g. slow join check" autocomplete="off">
+    </label>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cancelSaved">Cancel</button>
+      <button class="btn-primary" id="saveQueryBtn">Save Current Query</button>
+    </div>
+    <ul class="list saved-list" id="savedList"></ul>
   </div>
 </div>
 
@@ -249,40 +261,10 @@ LIMIT 5;</textarea>
 </script>
 <script src="JS/script.js"></script>
 <script>
-
-document.querySelector('[data-nav="connections"]').addEventListener('click', function (e) {
-  e.preventDefault();               // stops the <a> from jumping or navigating
-  // opens the real Add Connection modal (wired to /api/connections)
-  document.getElementById('addConnBtn').click();
-
-});
-
-document.querySelector('[data-nav="schema"]').addEventListener('click', function (e) {
-  e.preventDefault();               // stops the <a> from jumping or navigating
-  alert('Schema Explorer: coming soon!');
-
-});
-
-  document.querySelector('[data-nav="saved"]').addEventListener('click', function (e) {
-  e.preventDefault();               // stops the <a> from jumping or navigating
-  alert('Saved Queries: coming soon!');
-
-
-});
-
-  document.querySelector('[data-nav="ai"]').addEventListener('click', function (e) {
-  e.preventDefault();               // stops the <a> from jumping or navigating
-  alert('AI Recommmendation: coming soon!');
-
-});
-
-
-
   // Sign out handler
   document.getElementById('logoutBtn').addEventListener('click', function () {
     window.VEILAuth.logout();
   });
-
 </script>
 
 

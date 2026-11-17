@@ -1,5 +1,5 @@
 .conn-bar {
-  display: flex; align-items: flex-end; gap: 14px;
+  display: flex; align-items: center; gap: 14px;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -20,8 +20,11 @@ select, input {
   color: var(--text);
   background: var(--surface);
 }
+/* outline is removed, so focus is shown on the border instead */
+select:focus, input:focus { border-color: var(--accent); }
 .conn-select-wrap { display: flex; align-items: center; gap: 10px; }
 .conn-select-wrap select { min-width: 190px; }
+#dbType { min-width: 140px; }
 .conn-status { display: flex; align-items: center; gap: 6px; color: var(--good); font-size: 12px; }
  
 .btn-outline {
