@@ -16,6 +16,8 @@ public interface DatabaseAdapter {
 
     List<Map<String, Object>> getTables();
 
+    List<Map<String, Object>> getColumns();
+
     List<Map<String, Object>> getIndexes();
 
     // indexes of one table, including their definitions

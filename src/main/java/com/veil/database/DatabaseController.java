@@ -21,6 +21,7 @@ public class DatabaseController {
         return Map.of(
                 "database", databaseAdapter.getDatabaseName(),
                 "tables", databaseAdapter.getTables(),
+                "columns", databaseAdapter.getColumns(),
                 "indexes", databaseAdapter.getIndexes()
         );
     }

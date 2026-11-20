@@ -1,0 +1,16 @@
+{
+  "name": "veil-query-intelligence",
+  "version": "1.0.0",
+  "description": "VEIL — PostgreSQL Query Intelligence, AI Optimization & Automated Index Advisor",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -p 5500 .",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

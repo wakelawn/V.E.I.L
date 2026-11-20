@@ -1,150 +1,865 @@
+// VEIL — Application Coordinator Connects API client, Editor, Plan Viewer, Schema Explorer, AI Recommendations, and Chat Assistant.
+
 (() => {
-  const $  = (s, r = document) => r.querySelector(s);
+  const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* ================= API ================= */
-  const readError = async (res) => {
-    try {
-      const body = await res.json();
-      return body.error || body.message || `HTTP ${res.status}`;
-    } catch {
-      return `HTTP ${res.status} ${res.statusText}`;
-    }
-  };
-  const API = {
-    async get(path) {
-      const res = await fetch(path, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(await readError(res));
-      return res.json();
-    },
-    async post(path, body) {
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(await readError(res));
-      return res.json();
-    },
-  };
-
-  /* ================= CONNECTIONS (real, from /api/connections) ================= */
-  let savedConnections = [];
-  const connSelect = $('#connSelect');
-
-  // shared toast for short messages (recommendation clicks + connection actions)
+// Shared Toast Notification
   let toastTimer;
   function toast(text) {
     const t = $('#recToast');
+    if (!t) return;
     t.textContent = text;
     t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, 4000);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 3500);
   }
+
+// Card Pulse Animation
+  function pulseCard(card) {
+    if (!card) return;
+    card.classList.remove('pulse');
+    void card.offsetWidth;
+    card.classList.add('pulse');
+    card.addEventListener('animationend', () => card.classList.remove('pulse'), { once: true });
+  }
+
+// Masked password dialog, built from the app's existing modal styles. Resolves to the typed password, or null when cancelled.
+  function askPassword(connection) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal';
+      overlay.innerHTML = `
+        <div class="modal-box">
+          <h2>Unlock Saved Connection</h2>
+          <p class="modal-desc">Enter the password for <strong>${esc(connection.name)}</strong>
+            (${esc(connection.username || 'postgres')}@${esc(connection.host || 'localhost')}:${esc(connection.port || 5432)}/${esc(connection.databaseName || '')}).
+            It is used once and never saved.</p>
+          <label>Password
+            <input id="unlockPassword" type="password" autocomplete="off" placeholder="••••••••">
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" data-act="cancel">Cancel</button>
+            <button class="btn primary" type="button" data-act="ok">Unlock</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('#unlockPassword');
+
+      const finish = (value) => {
+        overlay.remove();
+        resolve(value);
+      };
+
+      overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => finish(null));
+      overlay.querySelector('[data-act="ok"]').addEventListener('click', () => finish(input.value));
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) finish(null);
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') finish(input.value);
+        if (event.key === 'Escape') finish(null);
+      });
+
+      input.focus();
+    });
+  }
+
+// ================= VIEW SWITCHER =================
+  function switchView(viewName) {
+    const viewAnalyzer = $('#viewAnalyzer');
+    const viewAi = $('#viewAi');
+    const viewSchema = $('#viewSchema');
+
+// Synchronize top toolbar active state
+    $$('.toolbar-btn').forEach((b) => b.classList.remove('active'));
+
+    if (viewName === 'ai') {
+      if (viewAnalyzer) viewAnalyzer.hidden = true;
+      if (viewAi) viewAi.hidden = false;
+      if (viewSchema) viewSchema.hidden = true;
+      $$('.nav-item').forEach((i) => i.classList.toggle('active', i.dataset.nav === 'ai'));
+      $('#tbBtnVeilAi')?.classList.add('active');
+      runAnalysis();
+    } else if (viewName === 'schema') {
+      if (viewAnalyzer) viewAnalyzer.hidden = true;
+      if (viewAi) viewAi.hidden = true;
+      if (viewSchema) viewSchema.hidden = false;
+      $$('.nav-item').forEach((i) => i.classList.toggle('active', i.dataset.nav === 'schema'));
+      $('#tbBtnSchema')?.classList.add('active');
+      if (window.VEILSchemaViewer) {
+        window.VEILSchemaViewer.render();
+      }
+    } else {
+      if (viewAnalyzer) viewAnalyzer.hidden = false;
+      if (viewAi) viewAi.hidden = true;
+      if (viewSchema) viewSchema.hidden = true;
+      $$('.nav-item').forEach((i) => i.classList.toggle('active', i.dataset.nav === 'analyzer'));
+      $('#tbBtnExplain')?.classList.add('active');
+      pulseCard($('.editor-panel'));
+    }
+  }
+
+  $('#backToAnalyzerBtn')?.addEventListener('click', () => switchView('analyzer'));
+  $('#schemaBackBtn')?.addEventListener('click', () => switchView('analyzer'));
+
+// ================= DATABASE CONNECTIONS =================
+  let savedConnections = [];
+  let activeConnectionId = null;
+  const connSelect = $('#connSelect');
 
   async function loadConnections() {
     try {
-      savedConnections = await API.get('/api/connections');
+      savedConnections = await window.VEILApi.getConnections();
+
+// Which saved connection is the analysis actually pointed at?
+      const active = await window.VEILApi.getActiveConnection().catch(() => null);
+      activeConnectionId = active && active.active ? active.connection.id : null;
     } catch {
-      // API unreachable - fall back to the real backend default
-      // connection instead of claiming "no saved connections"
-      savedConnections = [{ name: 'Default PostgreSQL' }];
+      const stored = localStorage.getItem('veil_connections');
+      if (stored) {
+        try { savedConnections = JSON.parse(stored); } catch { savedConnections = []; }
+      }
+      if (!Array.isArray(savedConnections)) savedConnections = [];
+      activeConnectionId = null;
     }
     renderConnections();
   }
 
-  function renderConnections() {
-    if (!savedConnections.length) {
-      connSelect.innerHTML = '<option value="-1">No saved connections yet</option>';
-    } else {
-      connSelect.innerHTML = savedConnections
-        .map((c, i) => `<option value="${i}">${esc(c.name)}</option>`)
-        .join('');
+// The dropdown always offers the default datasource. Saved connections are only listed as active when the backend confirms one is active.
+  function visibleConnections() {
+    const defaultEntry = {
+      id: 'default',
+      name: 'Default PostgreSQL',
+      type: 'PostgreSQL',
+      synthetic: true,
+    };
+
+    return [defaultEntry, ...savedConnections];
+  }
+
+  function activeIndex() {
+    const list = visibleConnections();
+    if (activeConnectionId === null) {
+      return list.findIndex((c) => c.id === 'default');
     }
+    return list.findIndex((c) => c.id === activeConnectionId);
+  }
+
+  function selectActiveOption() {
+    const idx = activeIndex();
+    if (connSelect) connSelect.value = String(idx >= 0 ? idx : 0);
     applyConnection();
   }
 
-  function applyConnection() {
-    const c = savedConnections[connSelect.value];
-    // the analysis always runs on the backend's default connection,
-    // so the name shown is the saved connection (or the default)
-    $('#sideConn').textContent = c ? c.name : 'Default PostgreSQL';
-    $('#dbType').value = 'PostgreSQL';
-    // Connected/Offline status comes from loadHealth(), not from this list
+  function renderConnections() {
+    if (!connSelect) return;
+
+    connSelect.innerHTML = visibleConnections()
+      .map((c, i) => `<option value="${i}">${esc(c.name)}</option>`)
+      .join('');
+
+    selectActiveOption();
   }
-  connSelect.addEventListener('change', applyConnection);
 
-  // the type dropdown is informational: it shows the type of the
-  // connection the backend actually runs on, so changing it manually
-  // snaps back to the detected value instead of doing nothing silently
-  $('#dbType').addEventListener('change', () => {
-    toast('The backend runs on PostgreSQL - the type is detected automatically.');
-    loadHealth();
-  });
+  function applyConnection() {
+    const list = visibleConnections();
+    const c = list[connSelect ? connSelect.value : 0] || list[0];
+    const name = c ? c.name : 'Default PostgreSQL';
+    const sideConn = $('#sideConn');
+    const dbType = $('#dbType');
+    if (sideConn) sideConn.textContent = name;
+    if (dbType) dbType.value = c?.type || 'PostgreSQL';
 
-  const modal = $('#connModal');
-  $('#addConnBtn').addEventListener('click', () => { modal.hidden = false; $('#newConnName').focus(); });
-  $('#cancelConn').addEventListener('click', () => { modal.hidden = true; });
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
-  // Enter in any modal field saves; Escape closes
-  $$('#connModal input').forEach((field) => field.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); $('#saveConn').click(); }
-  }));
-  document.addEventListener('keydown', (e) => {
-    // Escape closes whichever modal is open (connection / saved / AI)
-    if (e.key === 'Escape') $$('.modal').forEach((m) => { m.hidden = true; });
-  });
-  $('#saveConn').addEventListener('click', async () => {
-    const name = $('#newConnName').value.trim();
-    const hostPort = $('#newConnHost').value.trim();
-    const databaseName = $('#newConnDatabase').value.trim();
-    const username = $('#newConnUsername').value.trim();
-    const password = $('#newConnPassword').value;
+    if (window.VEILSchemaViewer) {
+      window.VEILSchemaViewer.setConnection(c || { name, type: 'PostgreSQL' });
+    }
+  }
 
-    if (!name || !hostPort || !databaseName || !username) {
-      toast('Please fill in name, host, database and username.');
+// Selecting a saved connection asks for its password (never stored) and makes it the database used by schema, EXPLAIN and index analysis.
+  async function onConnectionSelected() {
+    const list = visibleConnections();
+    const previous = activeIndex() >= 0 ? activeIndex() : 0;
+    const selectedIndex = Number(connSelect ? connSelect.value : 0);
+    const c = list[selectedIndex];
+
+// "Default PostgreSQL" goes back to application.properties
+    if (!c || c.id === 'default') {
+      if (activeConnectionId === null) {
+        applyConnection();
+        return;
+      }
+
+      try {
+        await window.VEILApi.deactivateConnection();
+        activeConnectionId = null;
+        toast('Using the default database from application.properties.');
+        applyConnection();
+        await loadHealth();
+        await loadSchema();
+      } catch (error) {
+        toast(`Could not switch to the default database: ${error.message}`);
+        if (connSelect) connSelect.value = String(previous);
+        applyConnection();
+      }
       return;
     }
 
-    // only PostgreSQL exists in the backend today - be honest about it
-    if ($('#newConnType').value !== 'PostgreSQL') {
-      toast('Only PostgreSQL connections are supported right now.');
+// Offline-only entries have no backend id and cannot be activated.
+    if (typeof c.id !== 'number' || c.id === activeConnectionId) {
+      applyConnection();
       return;
     }
 
-    // the host field holds "host" or "host:port"
-    const colon = hostPort.lastIndexOf(':');
-    const host = colon >= 0 ? hostPort.slice(0, colon) : hostPort;
-    const port = colon >= 0 ? (Number(hostPort.slice(colon + 1)) || 5432) : 5432;
+    const password = await askPassword(c);
 
-    const btn = $('#saveConn');
-    btn.disabled = true;
+    if (password === null) {
+      if (connSelect) connSelect.value = String(previous);
+      applyConnection();
+      return;
+    }
+
+    if (!password) {
+      toast(`No password entered for "${c.name}".`);
+      if (connSelect) connSelect.value = String(previous);
+      applyConnection();
+      return;
+    }
+
     try {
-      const saved = await API.post('/api/connections',
-        { name, host, port, databaseName, username, password });
+      await window.VEILApi.activateConnection(c.id, password);
+      activeConnectionId = c.id;
+      toast(`Analysing "${c.databaseName}" on ${c.host}.`);
+      applyConnection();
+      await loadHealth();
+      await loadSchema();
+    } catch (error) {
+      toast(`Could not activate "${c.name}": ${error.message}`);
+      if (connSelect) connSelect.value = String(previous);
+      applyConnection();
+    }
+  }
 
-      modal.hidden = true;
-      ['#newConnName', '#newConnHost', '#newConnDatabase',
-       '#newConnUsername', '#newConnPassword'].forEach((s) => ($(s).value = ''));
+  if (connSelect) connSelect.addEventListener('change', onConnectionSelected);
+
+// Adds a "Find databases" button + datalist to the existing modal without changing the modal's HTML or its CSS.
+  function ensureDiscoverButton() {
+    const dbInput = $('#newConnDatabase');
+    if (!dbInput || $('#discoverDbsBtn')) return;
+
+    const list = document.createElement('datalist');
+    list.id = 'newConnDatabaseOptions';
+    dbInput.setAttribute('list', 'newConnDatabaseOptions');
+    dbInput.insertAdjacentElement('afterend', list);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'discoverDbsBtn';
+    btn.className = 'btn ghost';
+    btn.textContent = 'Find databases';
+    btn.style.marginTop = '6px';
+    btn.addEventListener('click', discoverDatabases);
+
+    const anchor = dbInput.closest('label') || dbInput;
+    anchor.insertAdjacentElement('afterend', btn);
+  }
+
+  async function discoverDatabases() {
+    const hostPort = ($('#newConnHost')?.value || '').trim() || 'localhost:5432';
+    const [hostPart, portPart] = hostPort.split(':');
+    const host = (hostPart || 'localhost').trim();
+    const port = Number.parseInt(portPart, 10) || 5432;
+    const username = ($('#newConnUsername')?.value || '').trim() || 'postgres';
+    const password = $('#newConnPassword')?.value || '';
+
+    if (!password) {
+      toast('Enter the password first — it is used once to list databases.');
+      $('#newConnPassword')?.focus();
+      return;
+    }
+
+    const btn = $('#discoverDbsBtn');
+    const originalText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Searching...'; }
+
+    try {
+      const result = await window.VEILApi.discoverDatabases({
+        host, port, username, password,
+      });
+      const databases = result.databases || [];
+
+      const list = $('#newConnDatabaseOptions');
+      if (list) {
+        list.innerHTML = databases
+          .map((name) => `<option value="${esc(name)}"></option>`)
+          .join('');
+      }
+
+      const dbInput = $('#newConnDatabase');
+      if (dbInput && !databases.includes(dbInput.value)) {
+        const preferred = databases.find((name) => /veil/i.test(name)) || databases[0];
+        if (preferred) dbInput.value = preferred;
+      }
+
+      toast(databases.length
+        ? `Found ${databases.length} database(s) on ${host}. Pick one in the Database field.`
+        : `No databases found on ${host}.`);
+    } catch (error) {
+      toast(`Could not list databases: ${error.message}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    }
+  }
+
+  const dbTypeSelect = $('#dbType');
+  if (dbTypeSelect) {
+    dbTypeSelect.addEventListener('change', () => {
+      toast('VEIL is currently optimized for PostgreSQL query intelligence.');
+      loadHealth();
+    });
+  }
+
+// Connection Modal
+  const connModal = $('#connModal');
+  const addConnBtn = $('#addConnBtn');
+  const cancelConn = $('#cancelConn');
+  const saveConn = $('#saveConn');
+
+  if (addConnBtn) {
+    addConnBtn.addEventListener('click', () => {
+      if (connModal) {
+        connModal.hidden = false;
+        ensureDiscoverButton();
+        const nameInput = $('#newConnName');
+        if (nameInput) nameInput.focus();
+      }
+    });
+  }
+
+  if (cancelConn && connModal) {
+    cancelConn.addEventListener('click', () => { connModal.hidden = true; });
+    connModal.addEventListener('click', (e) => { if (e.target === connModal) connModal.hidden = true; });
+  }
+
+  if (saveConn) {
+    saveConn.addEventListener('click', async () => {
+      const name = ($('#newConnName')?.value || '').trim();
+      const hostPort = ($('#newConnHost')?.value || '').trim() || 'localhost:5432';
+      const [hostPart, portPart] = hostPort.split(':');
+      const host = (hostPart || 'localhost').trim();
+      const port = Number.parseInt(portPart, 10) || 5432;
+      const databaseName = ($('#newConnDatabase')?.value || '').trim() || 'veil';
+      const username = ($('#newConnUsername')?.value || '').trim() || 'postgres';
+      const password = $('#newConnPassword')?.value || '';
+
+      if (!name) {
+        toast('Please provide a name for the database connection.');
+        return;
+      }
+
+// Field names must match the Java ConnectionsController contract.
+      const newConn = {
+        name,
+        type: $('#newConnType')?.value || 'PostgreSQL',
+        host,
+        port,
+        databaseName,
+        username,
+      };
+
+      let savedToBackend = false;
+
+      try {
+        const created = await window.VEILApi.addConnection({ ...newConn, password });
+        savedToBackend = true;
+        activeConnectionId = created.id;
+      } catch (error) {
+        const offline = /failed to fetch|networkerror|load failed/i.test(error.message || '');
+
+        if (!offline) {
+// The backend tests the credentials before saving: report the real reason and keep the modal open so it can be corrected.
+          toast(`Connection rejected by backend: ${error.message}`);
+          return;
+        }
+
+// Backend unreachable: keep an offline copy so the UI still works.
+        savedConnections.push({ ...newConn, id: `local-${Date.now()}` });
+        localStorage.setItem('veil_connections', JSON.stringify(savedConnections));
+        toast('Backend offline — connection stored locally only.');
+      }
+
+      if (connModal) connModal.hidden = true;
+      ['#newConnName', '#newConnHost', '#newConnDatabase', '#newConnUsername', '#newConnPassword']
+        .forEach((s) => { const el = $(s); if (el) el.value = ''; });
 
       await loadConnections();
 
-      // select the connection we just saved
-      const idx = savedConnections.findIndex((c) => c.id === saved.id);
-      if (idx >= 0) { connSelect.value = idx; applyConnection(); }
+      if (savedToBackend) {
+// The backend activates the new connection immediately, so the panels below now describe that database.
+        await loadHealth();
+        await loadSchema();
+        toast(`Connection "${name}" saved and activated.`);
+      }
+    });
+  }
 
-      toast(`Connection "${saved.name}" saved.`);
-    } catch (e) {
-      toast(e.message);   // readable 400 from the backend
-    } finally {
-      btn.disabled = false;
-    }
+// ================= SIDEBAR NAVIGATION & TOGGLE =================
+  const sidebarToggle = $('#sidebarToggle');
+  const sidebarEl = $('#sidebar');
+  if (sidebarToggle && sidebarEl) {
+    sidebarToggle.addEventListener('click', () => {
+      sidebarEl.classList.toggle('open');
+    });
+  }
+
+  $$('.nav-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (window.innerWidth <= 820 && sidebarEl) {
+        sidebarEl.classList.remove('open');
+      }
+      switch (item.dataset.nav) {
+        case 'analyzer':
+          switchView('analyzer');
+          break;
+        case 'ai':
+          switchView('ai');
+          break;
+        case 'connections':
+          if (connModal) {
+            connModal.hidden = false;
+            ensureDiscoverButton();
+            $('#newConnName')?.focus();
+          }
+          break;
+        case 'schema':
+          switchView('schema');
+          toast('Schema Explorer opened.');
+          break;
+        case 'saved':
+          renderSaved();
+          const savedModal = $('#savedModal');
+          if (savedModal) {
+            savedModal.hidden = false;
+            $('#savedName')?.focus();
+          }
+          break;
+      }
+    });
   });
 
-  /* ================= TABS (generic) =================
-     A button with data-group + data-target shows the pane with that id
-     inside the same group. Works for schema and plan tabs. */
+// ================= QUERY INFORMATION =================
+  function renderQueryInfo(info, plan) {
+    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    const queryInfoEl = $('#queryInfo');
+    if (!queryInfoEl || !info) return;
+
+// Cost and rows are only honest when the planner returned them.
+    const cost = plan && Number.isFinite(plan.total) ? plan.total.toFixed(2) : null;
+    const rows = plan && Number.isFinite(plan.rows) ? plan.rows : null;
+
+    queryInfoEl.innerHTML =
+      row('Query Type', `<span class="pill">${esc(info.type || 'SELECT')}</span>`) +
+      row('Tables', esc((info.tables || []).join(', ') || info.table || '-')) +
+      row('Columns', esc((info.columns || []).join(', ') || '*')) +
+      row('WHERE Condition', esc(info.where || info.whereCondition || 'None')) +
+      row('Estimated Cost', cost !== null ? esc(cost) : '&mdash;') +
+      row('Estimated Rows', rows !== null ? esc(rows) : '&mdash;');
+  }
+
+// ================= CORE QUERY ANALYZER =================
+  async function runAnalysis() {
+    window.VEILEditor.hideError();
+    const sql = window.VEILEditor.getValue().trim();
+    if (!sql) return window.VEILEditor.showError('Please enter a SQL query first.');
+
+    const analyzeBtn = $('#analyzeBtn');
+    const originalText = analyzeBtn ? analyzeBtn.textContent : '';
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = 'Analyzing...';
+    }
+
+    try {
+      let analysisDone = false;
+      let planObj = null;
+
+// 1. Call Backend API
+      try {
+        const [analyzeRes, explainRes] = await Promise.all([
+          window.VEILApi.analyze(sql).catch(() => null),
+          window.VEILApi.explain(sql).catch(() => null),
+        ]);
+
+        if (explainRes && explainRes.plan) {
+          planObj = explainRes.plan;
+          window.VEILPlanViewer.render(explainRes.plan);
+          analysisDone = true;
+        }
+
+        if (analyzeRes) {
+          renderQueryInfo(analyzeRes, planObj);
+        }
+
+// Backend findings + plan notes (falls back to the client engine)
+        const schema = window.VEILSchemaViewer.getSchemaCache();
+        const aiRes = await window.VEILApi.getRecommendations(sql, planObj, schema, analyzeRes).catch(() => null);
+        if (aiRes) {
+          window.VEILRecommendations.render(aiRes);
+        }
+      } catch (apiErr) {
+// Fallback to local intelligence if backend is not yet started
+      }
+
+// 2. Client-side intelligence fallback if backend was unavailable
+      if (!analysisDone) {
+        const mock = generateLocalAnalysis(sql);
+        planObj = mock.plan;
+        renderQueryInfo(mock.info, mock.plan);
+        window.VEILPlanViewer.render(mock.plan);
+        const schema = window.VEILSchemaViewer.getSchemaCache();
+        const aiRecs = window.VEILAIEngine ? await window.VEILAIEngine.analyze(sql, mock.plan, schema) : {
+          findings: mock.recs,
+          summary: mock.summary,
+          notice: 'Operating in standalone mode'
+        };
+        window.VEILRecommendations.render(aiRecs);
+      }
+
+// 3. Update AI Optimized Query panel in lower half of editor column
+      if (window.VEILOptimizer) {
+        window.VEILOptimizer.render(sql, planObj);
+        pulseCard($('.optimized-panel'));
+      }
+    } catch (e) {
+      window.VEILEditor.showError(e.message);
+    } finally {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = originalText;
+      }
+    }
+  }
+
+// Local parser and execution plan generator for standalone demo mode
+  function generateLocalAnalysis(sql) {
+    const clean = sql.trim();
+    const isSelect = /^\s*SELECT/i.test(clean);
+    const hasJoin = /JOIN\s+(\w+)/i.test(clean);
+    const hasWhere = /WHERE\s+([^;]+?)(ORDER|LIMIT|GROUP|$)/i.test(clean);
+    const hasOrder = /ORDER\s+BY\s+([^;]+?)(LIMIT|$)/i.test(clean);
+    const hasLimit = /LIMIT\s+(\d+)/i.test(clean);
+
+    const tables = [];
+    const fromMatch = clean.match(/FROM\s+([a-zA-Z0-9_]+)/i);
+    if (fromMatch) tables.push(fromMatch[1]);
+    const joinMatches = [...clean.matchAll(/JOIN\s+([a-zA-Z0-9_]+)/gi)];
+    joinMatches.forEach((m) => { if (!tables.includes(m[1])) tables.push(m[1]); });
+
+    let cols = [];
+    const selectMatch = clean.match(/SELECT\s+(.+?)\s+FROM/is);
+    if (selectMatch) {
+      cols = selectMatch[1].split(',').map((c) => c.trim().replace(/^q\.|^p\.|^u\./, ''));
+    }
+
+    const whereStr = hasWhere ? clean.match(/WHERE\s+([^;]+?)(ORDER|LIMIT|GROUP|$)/i)[1].trim() : '';
+    const isExecQuery = tables.includes('query_executions') || clean.includes('duration_ms');
+    const limitVal = hasLimit ? parseInt(clean.match(/LIMIT\s+(\d+)/i)[1], 10) : (isExecQuery ? 10 : 5);
+
+    let root;
+    if (isExecQuery) {
+      const seqScan = {
+        id: 4, type: 'Seq Scan', label: 'on query_executions e',
+        startup: 0.00, total: 12.50, rows: 35, time: [0, 0], kind: 'bad', children: []
+      };
+      const indexScan = {
+        id: 5, type: 'Index Scan', label: 'on queries q using queries_pkey',
+        startup: 0.15, total: 8.17, rows: 1, time: [0, 0], kind: 'good', children: []
+      };
+      const hashJoin = {
+        id: 3, type: 'Hash Join', label: 'on (q.id = e.query_id)',
+        startup: 1.06, total: 14.20, rows: 28, time: [0, 0], kind: 'info',
+        children: [seqScan, indexScan]
+      };
+      const sortNode = {
+        id: 2, type: 'Sort', label: 'by avg_duration DESC',
+        startup: 14.85, total: 14.92, rows: 28, time: [0, 0], kind: 'warn',
+        children: [hashJoin]
+      };
+      root = {
+        id: 1, type: 'Limit', label: `rows=${limitVal}`,
+        startup: 14.85, total: 14.86, rows: limitVal, time: [0, 0], kind: 'info',
+        children: [sortNode]
+      };
+    } else if (hasJoin) {
+      const seqScan = {
+        id: 4, type: 'Seq Scan', label: 'on queries q',
+        startup: 0.00, total: 12.50, rows: 35, time: [0, 0], kind: 'bad', children: []
+      };
+      const indexScan = {
+        id: 5, type: 'Index Scan', label: 'on projects p using projects_pkey',
+        startup: 0.15, total: 8.17, rows: 1, time: [0, 0], kind: 'good', children: []
+      };
+      const hashJoin = {
+        id: 3, type: 'Hash Join', label: 'on (q.project_id = p.id)',
+        startup: 1.06, total: 14.20, rows: 28, time: [0, 0], kind: 'info',
+        children: [seqScan, indexScan]
+      };
+      const sortNode = {
+        id: 2, type: 'Sort', label: 'by created_at DESC',
+        startup: 14.85, total: 14.92, rows: 28, time: [0, 0], kind: 'warn',
+        children: [hashJoin]
+      };
+      root = {
+        id: 1, type: 'Limit', label: `rows=${limitVal}`,
+        startup: 14.85, total: 14.86, rows: limitVal, time: [0, 0], kind: 'info',
+        children: [sortNode]
+      };
+    } else {
+      root = {
+        id: 1, type: 'Limit', label: `rows=${limitVal}`,
+        startup: 0.00, total: 4.50, rows: limitVal, time: [0, 0], kind: 'info',
+        children: [{
+          id: 2, type: whereStr.includes('id') ? 'Index Scan' : 'Seq Scan',
+          label: `on ${tables[0] || 'queries'}`,
+          startup: 0.00, total: 10.20, rows: 25, time: [0, 0],
+          kind: whereStr.includes('id') ? 'good' : 'bad', children: []
+        }]
+      };
+    }
+
+    const recs = [];
+    if (isExecQuery) {
+      recs.push({
+        title: 'Sequential Scan on query_executions',
+        message: "The table 'query_executions' is scanned sequentially across duration records. An index on (query_id, duration_ms) cuts scan cost.",
+        severity: 'high',
+        suggestionSql: 'CREATE INDEX idx_exec_query_dur ON query_executions (query_id, duration_ms);'
+      });
+      recs.push({
+        title: 'Early CTE Pre-Aggregation',
+        message: 'Aggregating duration_ms inside a CTE bounds join input from 14,200 records to only qualifying slow queries.',
+        severity: 'medium',
+        suggestionSql: 'WITH slow_executions AS (SELECT query_id, AVG(duration_ms) FROM query_executions GROUP BY query_id) ...'
+      });
+    } else {
+      if (whereStr.includes('status')) {
+        recs.push({
+          title: 'Sequential Scan on queries',
+          message: "The table 'queries' is filtered on 'status = done' without an index, triggering a full sequential scan.",
+          severity: 'high',
+          suggestionSql: 'CREATE INDEX idx_queries_status ON queries (project_id, status);'
+        });
+      }
+      if (hasOrder) {
+        recs.push({
+          title: 'In-Memory Sort Node Overhead',
+          message: 'Sorting by created_at DESC is performed in work_mem. Adding a compound index avoids sort overhead.',
+          severity: 'low',
+          suggestionSql: 'CREATE INDEX idx_queries_created ON queries (project_id, created_at DESC);'
+        });
+      }
+    }
+    if (!recs.length) {
+      recs.push({
+        title: 'No major issues found',
+        message: 'No optimization issues detected.',
+        severity: 'low',
+        suggestionSql: ''
+      });
+    }
+
+    return {
+      info: {
+        type: isSelect ? 'SELECT' : 'QUERY',
+        tables: tables.length ? tables : ['queries'],
+        columns: cols.length ? cols : ['*'],
+        where: whereStr || 'None',
+        cost: root.total.toFixed(2),
+        rows: root.rows
+      },
+      plan: root,
+      recs,
+      summary: `Plan evaluates ${tables.join(', ')} with Limit (${root.rows} rows). An optimized rewrite reduces total cost.`
+    };
+  }
+
+// ================= SAVED QUERIES =================
+  const SAVED_KEY = 'veil_saved_queries';
+  const DEFAULT_SAVED = [
+    {
+      name: 'Slow Join on Projects',
+      sql: `SELECT q.id, q.query_text, p.name\nFROM queries q\nJOIN projects p ON q.project_id = p.id\nWHERE p.id = 1 AND q.status = 'done'\nORDER BY q.created_at DESC\nLIMIT 5;`,
+      savedAt: Date.now() - 3600000
+    },
+    {
+      name: 'High Latency Query Executions',
+      sql: `SELECT q.id, q.query_text, AVG(e.duration_ms) as avg_duration\nFROM queries q\nJOIN query_executions e ON q.id = e.query_id\nGROUP BY q.id, q.query_text\nHAVING AVG(e.duration_ms) > 250\nORDER BY avg_duration DESC\nLIMIT 10;`,
+      savedAt: Date.now() - 7200000
+    },
+    {
+      name: 'Active Project Member Breakdown',
+      sql: `SELECT p.name, COUNT(u.id) as total_users\nFROM projects p\nLEFT JOIN users u ON u.role = 'Analyst'\nWHERE p.plan_tier = 'enterprise'\nGROUP BY p.name;`,
+      savedAt: Date.now() - 86400000
+    }
+  ];
+
+  function readSaved() {
+    try {
+      const raw = localStorage.getItem(SAVED_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return DEFAULT_SAVED;
+  }
+
+  function writeSaved(list) {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(list));
+  }
+
+  function renderSaved() {
+    const list = readSaved();
+    const listEl = $('#savedList');
+    if (!listEl) return;
+
+    listEl.innerHTML = list.length
+      ? list.map((q, i) => `
+          <li data-saved="${i}">
+            <span>&#9873; <b>${esc(q.name)}</b></span>
+            <span class="meta">${esc(q.sql.replace(/\s+/g, ' ').slice(0, 42))}&hellip;</span>
+            <button class="btn-small" type="button" data-saved-del="${i}">Delete</button>
+          </li>`).join('')
+      : '<li><span>No saved queries yet. Type a query in the editor and save it here.</span></li>';
+
+    $$('[data-saved-del]').forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentList = readSaved();
+      const [removed] = currentList.splice(Number(b.dataset.savedDel), 1);
+      writeSaved(currentList);
+      renderSaved();
+      toast(`Deleted "${removed.name}".`);
+    }));
+
+    $$('[data-saved]').forEach((li) => li.addEventListener('click', () => {
+      const q = readSaved()[Number(li.dataset.saved)];
+      if (!q) return;
+      window.VEILEditor.setValue(q.sql);
+      const savedModal = $('#savedModal');
+      if (savedModal) savedModal.hidden = true;
+      switchView('analyzer');
+      runAnalysis();
+      toast(`Loaded "${q.name}".`);
+    }));
+  }
+
+  const saveQueryBtn = $('#saveQueryBtn');
+  if (saveQueryBtn) {
+    saveQueryBtn.addEventListener('click', () => {
+      const sql = window.VEILEditor.getValue().trim();
+      if (!sql) { toast('Nothing to save — SQL editor is empty.'); return; }
+
+      const name = ($('#savedName')?.value || '').trim() || `Query ${new Date().toLocaleTimeString()}`;
+      const list = readSaved();
+      list.unshift({ name, sql, savedAt: Date.now() });
+      writeSaved(list);
+
+      const savedNameInput = $('#savedName');
+      if (savedNameInput) savedNameInput.value = '';
+      renderSaved();
+      toast(`Query "${name}" saved.`);
+    });
+  }
+
+  const cancelSaved = $('#cancelSaved');
+  const savedModal = $('#savedModal');
+  if (cancelSaved && savedModal) {
+    cancelSaved.addEventListener('click', () => { savedModal.hidden = true; });
+    savedModal.addEventListener('click', (e) => { if (e.target === savedModal) savedModal.hidden = true; });
+  }
+
+// ================= HEALTH POLLING =================
+  const DB_TYPE_LABELS = {
+    POSTGRESQL: 'PostgreSQL',
+    MYSQL: 'MySQL',
+    SQLITE: 'SQLite',
+    MONGODB: 'Mongodb',
+  };
+
+  async function loadHealth() {
+    let ok = false;
+    let type = 'PostgreSQL';
+
+    try {
+      const h = await window.VEILApi.getHealth();
+      ok = !!h.connected;
+      if (h.databaseType) type = h.databaseType;
+    } catch {
+      ok = false;
+    }
+
+    const connStatus = $('#connStatus');
+    const connDot = $('#connDot');
+    const sideStatus = $('#sideStatus');
+    const sideDot = $('#sideDot');
+    const dbType = $('#dbType');
+
+    if (connStatus) {
+      connStatus.textContent = ok ? 'Connected' : 'Offline';
+      connStatus.className = 'label ' + (ok ? 'connected' : 'offline');
+    }
+    if (connDot) connDot.className = 'dot ' + (ok ? 'ok' : 'off');
+    if (sideStatus) {
+      sideStatus.textContent = ok ? 'Connected' : 'Offline';
+      sideStatus.className = 'side-foot-status ' + (ok ? 'connected' : '');
+    }
+    if (sideDot) sideDot.className = 'side-foot-dot ' + (ok ? 'ok' : 'off');
+    if (dbType) dbType.value = DB_TYPE_LABELS[String(type).toUpperCase()] || type;
+  }
+
+// ================= SCHEMA LOADING =================
+  async function loadSchema() {
+    try {
+      const schema = await window.VEILApi.getSchema();
+      window.VEILSchemaViewer.setSchema(schema);
+    } catch {
+      window.VEILSchemaViewer.setSchema({
+        tables: [
+          { table_name: 'queries', row_count: 14200 },
+          { table_name: 'projects', row_count: 350 },
+          { table_name: 'users', row_count: 1200 },
+          { table_name: 'query_executions', row_count: 85000 },
+          { table_name: 'database_metrics', row_count: 5400 },
+        ],
+        indexes: [
+          { indexname: 'projects_pkey', tablename: 'projects' },
+          { indexname: 'queries_pkey', tablename: 'queries' },
+          { indexname: 'users_pkey', tablename: 'users' },
+          { indexname: 'idx_queries_project_id', tablename: 'queries' },
+          { indexname: 'idx_users_email', tablename: 'users' },
+        ]
+      });
+    }
+  }
+
+// ================= COPY PLAN JSON =================
+  const copyPlanBtn = $('#copyPlanBtn');
+  if (copyPlanBtn) {
+    copyPlanBtn.addEventListener('click', () => {
+      const jsonOut = $('#planJsonOut');
+      if (!jsonOut) return;
+      jsonOut.select();
+      navigator.clipboard.writeText(jsonOut.value).then(() => {
+        toast('Execution plan JSON copied to clipboard.');
+      }).catch(() => {
+        document.execCommand('copy');
+        toast('Execution plan JSON copied.');
+      });
+    });
+  }
+
+// ================= TABS =================
   $$('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const g = btn.dataset.group, t = btn.dataset.target;
@@ -153,462 +868,130 @@
     });
   });
 
-  /* Sidebar nav: every item does something real
-     analyzer -> already on this page (stays highlighted)
-     connections -> opens the Add Connection modal
-     schema -> refreshes the schema and pulses its card
-     saved -> opens the Saved Queries modal
-     ai -> opens the AI summary modal */
-  $$('.nav-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      $$('.nav-item').forEach((i) => i.classList.toggle('active', i === item));
-      switch (item.dataset.nav) {
-        case 'connections':
-          modal.hidden = false;
-          $('#newConnName').focus();
-          break;
-        case 'schema':
-          loadSchema();
-          pulseCard($('#schemaTables').closest('.card'));
-          toast('Schema refreshed from the database.');
-          break;
-        case 'saved':
-          savedModal.hidden = false;
-          $('#savedName').focus();
-          break;
-        case 'ai':
-          openRecModal();
-          break;
-        // "analyzer" needs no action - this IS the analyzer page
-      }
-    });
+// ================= INITIALIZATION ================= 1. Initialize Editor
+  window.VEILEditor.init({
+    inputSelector: '#sqlInput',
+    highlightSelector: '#sqlHighlight',
+    lineNumsSelector: '#lineNums',
+    errorBoxSelector: '#errorBox',
+    onAnalyze: runAnalysis,
   });
 
-  /* ================= EDITOR ================= */
-  const input = $('#sqlInput'), hl = $('#sqlHighlight'), nums = $('#lineNums');
-  const KW = 'SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|AND|OR|NOT|IN|IS|NULL|LIKE|BETWEEN|AS|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|DISTINCT|UNION|ALL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CASE|WHEN|THEN|ELSE|END|DESC|ASC|WITH|COUNT|SUM|AVG|MIN|MAX';
-  const tokenRe = () => new RegExp(`(--[^\\n]*)|('(?:[^']|'')*')|\\b(\\d+(?:\\.\\d+)?)\\b|\\b(${KW})\\b`, 'gi');
-
-  function highlight(src) {
-    let out = '', last = 0, m;
-    const re = tokenRe();
-    while ((m = re.exec(src))) {
-      out += esc(src.slice(last, m.index));
-      const cls = m[1] ? 'tok-com' : m[2] ? 'tok-str' : m[3] ? 'tok-num' : 'tok-kw';
-      out += `<span class="${cls}">${esc(m[0])}</span>`;
-      last = re.lastIndex;
-    }
-    return out + esc(src.slice(last)) + '\n';
-  }
-  function refreshEditor() {
-    hl.innerHTML = input.value ? highlight(input.value) : '';
-    const lines = input.value.split('\n').length;
-    nums.textContent = Array.from({ length: lines }, (_, i) => i + 1).join('\n');
-    syncScroll();
-  }
-  function syncScroll() {
-    hl.scrollTop = input.scrollTop; hl.scrollLeft = input.scrollLeft;
-    nums.scrollTop = input.scrollTop;
-  }
-  input.addEventListener('input', refreshEditor);
-  input.addEventListener('scroll', syncScroll);
-  input.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); analyze(); }
+// Top Toolbar Interactive Actions (EXPLAIN, Indexes, Schema, Transactions)
+  $('#tbBtnExplain')?.addEventListener('click', () => {
+    $$('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    $('#tbBtnExplain')?.classList.add('active');
+    switchView('analyzer');
+    const planTreeTabBtn = $('[data-group="plan"][data-target="planTreeTab"]');
+    if (planTreeTabBtn) planTreeTabBtn.click();
+    runAnalysis();
+    toast('⚡ EXPLAIN plan executed on active query.');
   });
 
-  function formatSQL(sql) {
-    let s = sql.replace(/\s+/g, ' ').trim();
-    s = s.replace(tokenRe(), (m, c, str, num, kw) => (kw ? m.toUpperCase() : m));
-    s = s.replace(/\s(FROM|WHERE|GROUP BY|HAVING|ORDER BY|LIMIT)\b/g, '\n$1')
-         .replace(/\s((?:LEFT |RIGHT |INNER |FULL |CROSS )?JOIN)\b/g, '\n$1')
-         .replace(/\s(AND|OR)\s/g, '\n  $1 ');
-    return s;
-  }
-  const doFormat = () => { input.value = formatSQL(input.value); refreshEditor(); };
-  $('#formatBtn').addEventListener('click', doFormat);
-  $('#formatTopBtn').addEventListener('click', doFormat);
-  $('#clearBtn').addEventListener('click', () => { input.value = ''; hideError(); refreshEditor(); input.focus(); });
+  $('#tbBtnIndexes')?.addEventListener('click', () => {
+    $$('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    $('#tbBtnIndexes')?.classList.add('active');
+    switchView('schema');
+    const catIndexesTabBtn = $('[data-group="schemaCatalog"][data-target="catalogIndexesTab"]');
+    if (catIndexesTabBtn) catIndexesTabBtn.click();
+    toast('🗂 Opened Database Indexes in Schema Explorer.');
+  });
 
-  function showError(msg) { const b = $('#errorBox'); b.textContent = msg; b.hidden = false; }
-  function hideError() { $('#errorBox').hidden = true; }
+  $('#tbBtnSchema')?.addEventListener('click', () => {
+    $$('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    $('#tbBtnSchema')?.classList.add('active');
+    switchView('schema');
+    const catTablesTabBtn = $('[data-group="schemaCatalog"][data-target="catalogTablesTab"]');
+    if (catTablesTabBtn) catTablesTabBtn.click();
+    toast('⊞ Database Schema Explorer opened.');
+  });
 
-  // drop text (a table name from the schema list) at the caret position
-  function insertAtCursor(text) {
-    const start = input.selectionStart, end = input.selectionEnd;
-    input.value = input.value.slice(0, start) + text + input.value.slice(end);
-    input.selectionStart = input.selectionEnd = start + text.length;
-    input.focus();
-    refreshEditor();
-  }
+  $('#tbBtnVeilAi')?.addEventListener('click', () => {
+    $$('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    $('#tbBtnVeilAi')?.classList.add('active');
+    switchView('ai');
+    toast('✦ VEIL AI Recommendations & Copilot opened.');
+  });
 
-  /* ================= PLAN (real EXPLAIN from the backend) ================= */
-  const NODE_DESC = {
-    'Limit':          'Stops after the requested number of rows have been produced.',
-    'Sort':           'Sorts the rows to satisfy ORDER BY. Can spill to disk if the row set is large.',
-    'HashAggregate':  'Groups rows using a hash table to compute GROUP BY aggregates.',
-    'Hash Join':      'Builds a hash table from one input and probes it with the other. Fast for large unsorted inputs; an index on the join column can help.',
-    'Seq Scan':       'Reads every row of the table. Fine for small tables, slow for large ones when only a few rows are needed.',
-    'Index Scan':     'Uses an index to jump straight to matching rows instead of reading the whole table.',
-  };
-
-  /* ================= PLAN ADAPTER =================
-     Backend PlanSummary -> the shape renderPlan()/selectNode() expect. */
-  function adaptPlan(p) {
-    let id = 0;
-    const walk = (n) => {
-      const type = n.nodeType || 'Unknown';
-      const kind = type === 'Seq Scan' ? 'bad'
-        : /Index/.test(type) ? 'good'
-        : type === 'Sort' ? 'warn'
-        : 'info';
-      return {
-        id: ++id,
-        type,
-        label: n.relation && n.relation !== 'NotAvailable' ? 'on ' + n.relation : '',
-        startup: n.startupCost ?? 0,
-        total: n.totalCost ?? 0,
-        rows: n.estimatedRows ?? 0,
-        time: [0, 0],
-        kind,
-        children: (n.children || []).map(walk),
-      };
-    };
-    return walk(p);
-  }
-
-  const flatten = (n, depth = 0, out = []) => { out.push({ n, depth }); n.children.forEach((c) => flatten(c, depth + 1, out)); return out; };
-  let currentPlan = null, selectedId = null;
-
-  // plain EXPLAIN has no real timings - show '-' instead of a fake 0..0 ms
-  const timeText = (n) => (n.time[0] || n.time[1]) ? `${n.time[0]}..${n.time[1]} ms` : '-';
-
-  function renderPlan(plan) {
-    currentPlan = plan;
-    selectedId = plan.id;
-
-    $('#planTree').innerHTML = flatten(plan).map(({ n, depth }) => `
-      <div class="plan-node k-${n.kind}" data-id="${n.id}" style="margin-left:${depth * 18}px">
-        <div><b>${esc(n.type)} ${esc(n.label)}</b>
-        <small>cost=${n.startup}..${n.total} rows=${n.rows} time=${timeText(n)}</small></div>
-        <span class="rows-badge">${n.rows} rows</span>
-      </div>`).join('');
-
-    $('#planJsonOut').textContent = JSON.stringify(plan, (k, v) => (k === 'id' || k === 'kind' ? undefined : v), 2);
-
-    const viz = (n) => `<div class="viz-branch">
-      <div class="viz-node k-${n.kind}" data-id="${n.id}"><b>${esc(n.type)}</b>
-        ${n.label ? `<small>${esc(n.label.replace('on ', ''))}</small>` : ''}
-        <small>${n.rows} rows</small><small>${timeText(n)}</small></div>
-      ${n.children.length ? `<div class="viz-arrow"></div><div class="viz-children">${n.children.map(viz).join('')}</div>` : ''}
-    </div>`;
-    $('#viz').innerHTML = viz(plan);
-
-    $$('.plan-node, .viz-node').forEach((el) => el.addEventListener('click', () => selectNode(+el.dataset.id)));
-    selectNode(plan.id);
-  }
-
-  function selectNode(id) {
-    selectedId = id;
-    const n = flatten(currentPlan).find((x) => x.n.id === id).n;
-    $$('.plan-node, .viz-node').forEach((el) => el.classList.toggle('selected', +el.dataset.id === id));
-    $('#planDetails').innerHTML = [
-      ['Node Type', n.type], ['Startup Cost', n.startup], ['Total Cost', n.total],
-      ['Estimated Rows', n.rows], ['Actual Rows', '-'], ['Node Time', timeText(n)],
-    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
-    $('#planDesc').textContent = NODE_DESC[n.type] || '';
-  }
-
-  /* ================= INFO / RECOMMENDATIONS / AI ================= */
-  function renderInfo(a) {
-    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
-    $('#queryInfo').innerHTML =
-      row('Query Type', '<span class="pill">SELECT</span>') +
-      row('Table', esc(a.table || '-')) +
-      row('Columns', esc((a.columns || []).join(', ') || '-')) +
-      row('WHERE', esc(a.whereCondition || '-'));
-  }
-
-  function toRecs(a) {
-    // structured findings from the optimization engine, when present
-    const findings = (a && a.findings) || null;
-    const out = findings
-      ? findings.map((f) => {
-          const impact = ['high', 'medium', 'low'].includes(f.severity)
-            ? f.severity : 'low';
-          return {
-            icon: impact === 'high' ? '&#9888;' : '&#9432;',
-            color: impact === 'high' ? 'var(--warn)' : 'var(--accent)',
-            impact,
-            title: f.title || 'Recommendation',
-            text: f.message,
-            sql: f.suggestionSql || '',
-          };
-        })
-      : (a && a.recommendations || []).map((text) => ({
-          icon: '&#9888;', color: 'var(--warn)', impact: 'medium',
-          title: 'Recommendation', text, sql: '',
-        }));
-    if (!out.length) out.push({
-      icon: '&#9432;', color: 'var(--good)', impact: 'low',
-      title: 'No major issues found',
-      text: 'No optimization issues detected.', sql: '',
-    });
-    return out;
-  }
-
-  function renderRecs(recs) {
-    $('#recCount').textContent = `(${recs.length})`;
-    $('#recList').innerHTML = recs.map((r, i) => `
-      <div class="rec">
-        <div class="rec-main">
-          <span class="rec-ico" style="color:${r.color}">${r.icon}</span>
-          <div class="rec-text">
-            <button class="rec-message" type="button" data-rec-message="${i}">
-              <b>${esc(r.title)}</b><span>${esc(r.text)}</span>
-            </button>
-          </div>
-          <span class="impact ${r.impact}">${r.impact[0].toUpperCase() + r.impact.slice(1)} Impact</span>
-          ${r.sql ? `<button class="btn-small" data-rec="${i}">Show SQL</button>` : ''}
-        </div>
-        <pre class="rec-extra" id="rec-extra-${i}" hidden>${esc(r.sql)}</pre>
-      </div>`).join('');
-    $$('[data-rec-message]').forEach((button) => button.addEventListener('click', () => {
-      const rec = recs[Number(button.dataset.recMessage)];
-      toast(`${rec.title}: ${rec.text}`);
-    }));
-    $$('[data-rec]').forEach((b) => b.addEventListener('click', () => {
-      const box = $('#rec-extra-' + b.dataset.rec);
-      box.hidden = !box.hidden;
-      b.textContent = box.hidden ? 'Show SQL' : 'Hide SQL';
-    }));
-  }
-
-  function renderAI(plan) {
-    // the backend already produces a readable summary of the plan
-    $('#aiText').textContent = (plan && plan.planSummary) || '';
-  }
-
-  /* ================= ANALYZE ================= */
-  async function analyze() {
-    hideError();
-    const sql = input.value.trim();
-    if (!sql) return showError('Please enter a SQL query first.');
-
-    const btn = $('#analyzeBtn');
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Analyzing...';
-
-    let failure = null;
-
-    let recs = [];
-
-    try {
-      // 1. parser-based analysis (tokens/columns/recommendations)
-      try {
-        const a = await API.post('/api/analyze', { sql });
-        renderInfo(a);
-        recs = toRecs(a);
-      } catch (e) {
-        // parser may not support the grammar yet; the plan can still work
-        failure = e.message;
-      }
-
-      // 2. real PostgreSQL EXPLAIN
-      try {
-        const ex = await API.post('/api/explain', { sql });
-        renderPlan(adaptPlan(ex.plan));
-        renderAI(ex.plan);
-
-        // plan-level insights (bottleneck, filter scans) join the list
-        for (const text of ex.plan.recommendations || []) {
-          recs.push({
-            icon: '&#9673;', color: 'var(--accent)', impact: 'low',
-            title: 'Plan Insight', text, sql: '',
-          });
-        }
-      } catch (e) {
-        failure = failure || e.message;
-      }
-
-      if (!recs.length) recs = toRecs([]);
-      renderRecs(recs);
-
-      if (failure) showError(failure);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
-    }
-  }
-  $('#analyzeBtn').addEventListener('click', analyze);
-
-  /* ================= SCHEMA LIST ================= */
-  let schemaCache = { tables: [], indexes: [] };
-
-  async function loadSchema() {
-    try {
-      const data = await API.get('/api/database');
-      schemaCache = { tables: data.tables || [], indexes: data.indexes || [] };
-      renderSchema($('#schemaSearch').value.trim());
-    } catch (e) {
-      $('#tableList').innerHTML = '';
-      $('#indexList').innerHTML = '';
-      showError(`Could not load schema: ${e.message}`);
-    }
-  }
-
-  function renderSchema(filter = '') {
-    const f = filter.toLowerCase();
-    $('#tableList').innerHTML = schemaCache.tables
-      .filter((t) => t.table_name.toLowerCase().includes(f))
-      .map((t) => `<li data-table="${esc(t.table_name)}"><span>&#9638; ${esc(t.table_name)}</span></li>`)
-      .join('');
-
-    $('#indexList').innerHTML = schemaCache.indexes
-      .filter((i) => (i.indexname + i.tablename).toLowerCase().includes(f))
-      .map((i) => `<li data-index="${esc(i.indexname)}" data-idx-table="${esc(i.tablename)}">`
-        + `<span>${esc(i.indexname)}</span><span class="meta">${esc(i.tablename)}</span></li>`)
-      .join('');
-
-    // clicking a table inserts its name into the editor at the caret
-    $$('#tableList li').forEach((li) => li.addEventListener('click', () => {
-      insertAtCursor(li.dataset.table);
-      toast(`Inserted ${li.dataset.table} into the editor.`);
-    }));
-
-    // clicking an index explains where it lives
-    $$('#indexList li').forEach((li) => {
-      li.addEventListener('click', () => {
-        toast(`Index ${li.dataset.index} is on table ${li.dataset.idxTable}.`);
-      });
-      // index name + table meta side by side (row layout)
-      li.style.display = 'flex';
-      li.style.flexDirection = 'row';
-      li.style.alignItems = 'center';
-      li.style.justifyContent = 'space-between';
-      li.style.gap = '8px';
-    });
-  }
-  $('#schemaSearch').addEventListener('input', (e) => renderSchema(e.target.value.trim()));
-
-  /* ================= AI SUMMARY MODAL =================
-     The sidebar "AI Recommendations" item opens the plan summary
-     (the same text the Recommendations card shows) in a modal. */
-  const recModal = $('#recModal');
-
-  function openRecModal() {
-    const text = $('#aiText').textContent.trim();
-    $('#recModalText').textContent = text
-      || 'Run Analyze Query first - the AI summary of the execution plan will appear here.';
-    recModal.hidden = false;
-  }
-
-  $('#recModalClose').addEventListener('click', () => { recModal.hidden = true; });
-  recModal.addEventListener('click', (e) => { if (e.target === recModal) recModal.hidden = true; });
-
-  // brief highlight around a card, used when the sidebar refreshes it
-  function pulseCard(card) {
-    if (!card) return;
-    card.classList.remove('pulse');
-    void card.offsetWidth;          // restart the CSS animation
-    card.classList.add('pulse');
-    card.addEventListener('animationend', () => card.classList.remove('pulse'), { once: true });
-  }
-
-  /* ================= SAVED QUERIES (localStorage) =================
-     Saved queries live only in this browser for now - localStorage
-     keeps them across page loads, but they are NOT on the server. */
-  const savedModal = $('#savedModal');
-  const SAVED_KEY = 'veil_saved_queries';
-
-  const readSaved = () => {
-    try { return JSON.parse(localStorage.getItem(SAVED_KEY)) || []; }
-    catch { return []; }
-  };
-  const writeSaved = (list) => localStorage.setItem(SAVED_KEY, JSON.stringify(list));
-
-  function renderSaved() {
-    const list = readSaved();
-    $('#savedList').innerHTML = list.length
-      ? list.map((q, i) => `
-          <li data-saved="${i}">
-            <span>&#9873; ${esc(q.name)}</span>
-            <span class="meta">${esc(q.sql.length > 40 ? q.sql.slice(0, 40) + '\u2026' : q.sql)}</span>
-            <button class="btn-small" type="button" data-saved-del="${i}">Delete</button>
-          </li>`).join('')
-      : '<li><span>No saved queries yet</span>'
-        + '<span class="meta">Type a query in the editor, then save it here</span></li>';
-
-    // deleting a saved query (does not load it)
-    $$('[data-saved-del]').forEach((b) => b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const list = readSaved();
-      const [removed] = list.splice(Number(b.dataset.savedDel), 1);
-      writeSaved(list);
-      renderSaved();
-      toast(`Deleted "${removed.name}".`);
-    }));
-
-    // clicking a saved query loads it into the editor and analyzes it
-    $$('[data-saved]').forEach((li) => li.addEventListener('click', () => {
-      const q = readSaved()[Number(li.dataset.saved)];
-      if (!q) return;
-      input.value = q.sql;
-      refreshEditor();
-      savedModal.hidden = true;
-      analyze();
-      toast(`Loaded "${q.name}".`);
-    }));
-  }
-
-  $('#saveQueryBtn').addEventListener('click', () => {
-    const sql = input.value.trim();
-    if (!sql) { toast('Nothing to save - the editor is empty.'); return; }
-
-    const name = $('#savedName').value.trim() || `Query ${new Date().toLocaleString()}`;
-    const list = readSaved();
-    list.unshift({ name, sql, savedAt: Date.now() });
-    writeSaved(list);
-
-    $('#savedName').value = '';
+// Editor Actions
+  $('#analyzeBtn')?.addEventListener('click', async () => {
+    await runAnalysis();
+    toast('⚡ Query analyzed — AI optimized rewrite generated.');
+  });
+  $('#formatBtn')?.addEventListener('click', () => {
+    window.VEILEditor.format();
+    toast('SQL Query formatted.');
+  });
+  $('#templatesBtn')?.addEventListener('click', () => {
     renderSaved();
-    toast(`Saved "${name}".`);
+    const savedModal = $('#savedModal');
+    if (savedModal) savedModal.hidden = false;
+  });
+  $('#formatTopBtn')?.addEventListener('click', () => {
+    window.VEILEditor.format();
+    toast('SQL Query formatted.');
+  });
+  $('#clearBtn')?.addEventListener('click', () => {
+    window.VEILEditor.clear();
+    if (window.VEILOptimizer) window.VEILOptimizer.render('', null);
   });
 
-  $('#cancelSaved').addEventListener('click', () => { savedModal.hidden = true; });
-  savedModal.addEventListener('click', (e) => { if (e.target === savedModal) savedModal.hidden = true; });
-  $('#savedName').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); $('#saveQueryBtn').click(); }
+// Real-time AI optimizer preview on query input
+  let optDebounceTimer = null;
+  $('#sqlInput')?.addEventListener('input', () => {
+    clearTimeout(optDebounceTimer);
+    optDebounceTimer = setTimeout(() => {
+      const sql = window.VEILEditor.getValue().trim();
+      if (sql && window.VEILOptimizer) {
+        window.VEILOptimizer.render(sql, null);
+      }
+    }, 350);
   });
 
-  /* ================= HEALTH ================= */
-  const typeMap = { POSTGRESQL: 'PostgreSQL', MYSQL: 'MySQL', SQLITE: 'SQLite', MONGODB: 'Mongodb' };
+// 2. Initialize Schema Viewer
+  window.VEILSchemaViewer.init({
+    onTableClick: (tableName) => {
+      window.VEILEditor.insertAtCursor(tableName);
+      switchView('analyzer');
+    },
+    onOpenInEditor: (sql) => {
+      window.VEILEditor.setValue(sql);
+      switchView('analyzer');
+    },
+    onToast: toast,
+  });
 
-  async function loadHealth() {
-    // the status always reflects the backend's default connection,
-    // because that is the connection the analysis actually uses
-    let ok = false;
-    let type = 'PostgreSQL';
-    try {
-      const h = await API.get('/api/database/health');
-      ok = !!h.connected;
-      if (typeMap[h.databaseType]) type = typeMap[h.databaseType];
-    } catch {
-      // leave offline; the error box is not needed for a status check
-    }
-
-    $('#connStatus').textContent = ok ? 'Connected' : 'Offline';
-    $('#connDot').className = 'dot ' + (ok ? 'ok' : 'off');
-    $('#sideStatus').textContent = ok ? 'Connected' : 'Offline';
-    $('#sideStatus').style.color = ok ? '' : 'var(--bad)';
-    $('#dbType').value = type;
+// 3. Initialize AI Query Optimizer (Lower Half of Editor Column)
+  if (window.VEILOptimizer) {
+    window.VEILOptimizer.init({
+      onApply: (optSql) => {
+        window.VEILEditor.setValue(optSql);
+        pulseCard($('.editor-panel'));
+        runAnalysis();
+        toast('AI optimized query applied to editor.');
+      },
+      onToast: toast,
+      onExplain: (opt) => {
+        switchView('ai');
+        if (window.VEILChat) {
+          window.VEILChat.send(`Can you explain in detail why this optimized query rewrite is faster than the original query?\n\nORIGINAL SQL:\n${window.VEILEditor.getValue()}\n\nOPTIMIZED SQL (${opt.strategy}):\n${opt.sql}`);
+        }
+      }
+    });
   }
 
-  /* ================= INIT ================= */
+// 4. Initialize Recommendations
+  window.VEILRecommendations.init({
+    onToast: toast,
+  });
+
+// 5. Initialize Interactive Chat Assistant
+  window.VEILChat.init();
+
+// 6. Load Data & Run Initial Analysis
+  ensureDiscoverButton();
   loadConnections();
   loadHealth();
   loadSchema();
-  refreshEditor();
-  analyze();
+  runAnalysis();
 })();

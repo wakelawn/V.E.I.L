@@ -15,7 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // integration tests that need NO live database. The analyze endpoint
 // degrades gracefully (the IndexAdvisor catches the failed index check),
 // and every error path is deterministic no matter what the database does
-@SpringBootTest
+@SpringBootTest(properties = {
+		"veil.connections.file=target/test-connections.json",
+		"veil.ai.nvidia.api-key="
+})
 @AutoConfigureMockMvc
 class WebApiIntegrationTest {
 
@@ -107,6 +110,48 @@ class WebApiIntegrationTest {
 
 		mockMvc.perform(get("/api/connections/99999"))
 				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error").exists());
+	}
+
+	@Test
+	void aiStatusReportsNvidiaNimWithoutExposingAKey() throws Exception {
+
+		mockMvc.perform(get("/api/ai/status"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.provider").value("nvidia-nim"))
+				.andExpect(jsonPath("$.configured").value(false))
+				.andExpect(jsonPath("$.model").isNotEmpty())
+				.andExpect(jsonPath("$.baseUrl").isNotEmpty())
+				.andExpect(jsonPath("$.apiKey").doesNotExist());
+	}
+
+	@Test
+	void aiRecommendWithoutConfiguredKeyIsReadable503() throws Exception {
+
+		mockMvc.perform(post("/api/ai/recommend")
+						.contentType("application/json")
+						.content("{\"sql\":\"SELECT * FROM projects;\"}"))
+				.andExpect(status().isServiceUnavailable())
+				.andExpect(jsonPath("$.error").exists());
+	}
+
+	@Test
+	void aiRecommendWithoutSqlIsReadable400() throws Exception {
+
+		mockMvc.perform(post("/api/ai/recommend")
+						.contentType("application/json")
+						.content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error").exists());
+	}
+
+	@Test
+	void aiChatWithoutConfiguredKeyIsReadable503() throws Exception {
+
+		mockMvc.perform(post("/api/ai/chat")
+						.contentType("application/json")
+						.content("{\"message\":\"Why is this query slow?\"}"))
+				.andExpect(status().isServiceUnavailable())
 				.andExpect(jsonPath("$.error").exists());
 	}
 }

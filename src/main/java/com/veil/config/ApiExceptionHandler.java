@@ -1,5 +1,7 @@
 package com.veil.config;
 
+import com.veil.ai.AiUnavailableException;
+import com.veil.ai.AiUpstreamException;
 import com.veil.lexer.LexException;
 import com.veil.parser.ParseException;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +45,18 @@ public class ApiExceptionHandler {
 	public ResponseEntity<Map<String, String>> onConnection(CannotGetJdbcConnectionException e) {
 		String message = e.getMostSpecificCause().getMessage();
 		return ResponseEntity.status(503).body(Map.of("error", "Database connection failed: " + message));
+	}
+
+	// NVIDIA NIM has no API key configured
+	@ExceptionHandler(AiUnavailableException.class)
+	public ResponseEntity<Map<String, String>> onAiUnavailable(AiUnavailableException e) {
+		return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+	}
+
+	// NVIDIA NIM was reachable but the upstream request failed
+	@ExceptionHandler(AiUpstreamException.class)
+	public ResponseEntity<Map<String, String>> onAiUpstream(AiUpstreamException e) {
+		return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
 	}
 
 	// a requested resource does not exist (e.g. unknown connection id)

@@ -1,35 +1,173 @@
-* {
+/* ============================================================
+   VEIL — Design System
+   Matches the pixel-perfect VEIL UI reference:
+   - Deep forest green sidebar (#0f241a)
+   - Clean white top toolbar and card surfaces (#ffffff)
+   - Soft off-white dashboard background (#f8faf8)
+   - Forest green brand accent (#2d5a3f)
+   - High-contrast, readable typography
+   ============================================================ */
+
+:root {
+  /* Brand colors */
+  --color-sidebar: #0f241a;
+  --color-sidebar-dark: #0a1912;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --color-sidebar-active: rgba(255, 255, 255, 0.10);
+  --color-primary: #2d5a3f;
+  --color-primary-hover: #1e422e;
+  --color-primary-light: rgba(45, 90, 63, 0.08);
+  --color-primary-glow: rgba(45, 90, 63, 0.2);
+  --color-accent-green: #22c55e;
+
+  /* Surfaces */
+  --color-bg: #f8faf8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f4f1;
+  --color-surface-hover: #eaf0ea;
+
+  /* Text */
+  --color-text: #131d16;
+  --color-text-secondary: #4a5c50;
+  --color-text-muted: #7b8e81;
+  --color-text-light: rgba(255, 255, 255, 0.7);
+
+  /* Borders */
+  --color-border: #dbe2db;
+  --color-border-strong: #bac5ba;
+  --color-border-focus: #2d5a3f;
+
+  /* Radius */
+  --radius-tight: 6px;
+  --radius-card: 10px;
+  --radius-pill: 20px;
+
+  /* Semantic status colors */
+  --color-ok: #2d5a3f;
+  --color-ok-bg: rgba(45, 90, 63, 0.08);
+  --color-warn: #b45309;
+  --color-warn-bg: #fef3c7;
+  --color-bad: #dc2626;
+  --color-bad-bg: #fee2e2;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* Text sizes */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(15, 36, 26, 0.05), 0 1px 2px rgba(15, 36, 26, 0.03);
+  --shadow-modal: 0 16px 40px rgba(15, 36, 26, 0.16);
+
+  /* Layout dimensions */
+  --sidebar-width: 236px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height: 58px;
+
+  /* Motion */
+  --motion-fast: 140ms ease;
+  --motion-medium: 240ms ease;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
-*::-webkit-scrollbar { display: none; }
-[hidden] { display: none !important; }
-
-html, body {
+html,
+body {
   height: 100%;
+  width: 100%;
   overflow: hidden;
-  font-family: Georgia, "Times New Roman", Times, serif;
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* native controls (buttons, selects, inputs) render in the browser's
-   default font by default - make them follow the page theme instead,
-   feel clickable, and show a clear disabled state */
-button, select, input, textarea {
+[hidden] {
+  display: none !important;
+}
+
+button,
+select,
+input,
+textarea {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
 }
 
-button { cursor: pointer; }
-button[disabled] { opacity: 0.6; cursor: default; }
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
 
+button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Base application layout: 2-column flex (Sidebar + Main) */
 .app {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  display: flex;
+  width: 100vw;
   height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Focus indicator */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

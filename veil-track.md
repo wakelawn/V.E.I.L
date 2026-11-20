@@ -112,10 +112,11 @@ PostgreSQL EXPLAIN
 | Connections UI wiring (dashboard dropdown + Add-Connection modal use the real API; health status from /api/database/health) | ✅ |
 | Dashboard functional-elements pass (every clickable element wired: rec/AI modal, Saved Queries modal w/ localStorage, Schema Explorer refresh + pulse, clickable schema lists inserting into the editor, Escape closes any modal — no `alert()` placeholders left) | ✅ |
 | Integration Tests (MockMvc: web API without DB + DB-backed flows gated on DB_PASSWORD) | ✅ |
+| AI Recommendations via NVIDIA NIM (`/api/ai/recommend`, `/api/ai/chat`, `/api/ai/status`; backend-held key, honest Java fallback) | ✅ |
 | REST API Core (`/api/analyze`, `/api/explain`, `/api/database`, `/api/database/health`) | ✅ |
 | CORS Configuration       | ✅     |
 | Dashboard Frontend (HTML/CSS/JS) | ✅ |
-| Unit Tests (Lexer, Parser, Optimization Engine, Plan/Cost Analysis — 41 passing) | ✅ |
+| Unit Tests (Lexer, Parser, Optimization Engine, Plan/Cost Analysis, NVIDIA NIM client — 78 passing) | ✅ |
 
 ### In Progress / Planned
 
@@ -128,7 +129,7 @@ PostgreSQL EXPLAIN
 | Cost Analysis            | ⏳     |
 | Optimizer                | ⏳     |
 | Index Recommendation     | ⏳     |
-| Multi-connection Support (ConnectionService, Registry, per-connection DataSource) | ⏳ |
+| Multi-connection Support (ConnectionRegistry, ConnectionStore, discovery, active switching) | ✅ |
 | React Auth UI (veil-auth) | ⏳    |
 | AI Explanation Layer     | ⏳     |
 | MySQL / SQLite Adapters  | ⏳     |
@@ -187,7 +188,7 @@ DONE (exists in code)
                                             ConnectionView (no password)
 - com.veil.lexer.LexException             → lexer errors are typed, not bare
                                             RuntimeException
-- src/test/java                           → 67 JUnit tests passing
+- src/test/java                           → 78 JUnit tests passing
                                             (10 lexer + 13 parser + 7
                                             optimization engine + 8 index
                                             analysis + 5 connections
@@ -217,7 +218,6 @@ SECURITY
   also pulls Spring Framework 7.0.10 and Jackson 3.1.7
 
 NOT STARTED (does not exist yet)
-- connection/dto + ConnectionService/Registry (multi-connection)
 - veil-auth React app
 - semantic analyzer, cost module, index recommender
 - backend authentication (JWT was previously added, then removed)
@@ -894,11 +894,11 @@ VEIL can eventually interpret these operations and present them in a simpler for
 | Leading column | The first column of an index; a filter on it can use the index directly (B-tree ordering) |
 | Index coverage | A filtered column is covered when it is the leading column of some index on the same table |
 | IndexAdvisor | Phase 8 component verifying FILTER_INDEX hints against real indexes; emits CREATE INDEX suggestions for uncovered columns |
-| DataSource | A configured source of database connections; each saved connection may need its own DataSource (planned) |
+| DataSource | A configured source of database connections; the default comes from `application.properties`, and `ActiveConnection` builds a per-connection one when a saved connection is activated |
 | JdbcTemplate | Spring JDBC helper for executing SQL through a DataSource |
 | CORS | Browser security mechanism controlling cross-origin requests |
 | IndexAdvisor | Phase 8 component verifying FILTER_INDEX hints against real indexes; emits CREATE INDEX suggestions for uncovered columns |
-| Connection Registry | Holds saved connections with ids; in Phase 9 realized in-memory by ConnectionRegistry (persistence can be added later without changing callers) |
+| Connection Registry | Holds saved connections with ids; ids and the safe fields persist via ConnectionStore, while passwords stay in memory only |
 | ConnectionView | Password-free response shape of a saved connection; responses are built only from it so the password never leaves the server |
 | Integration test | Full Spring context + MockMvc: real HTTP-shaped requests through controllers, JSON conversion and the error handler included |
 | MockMvc | Spring's test tool that calls controllers like a browser would, without opening a network port |
@@ -1009,7 +1009,7 @@ Index Recommendations
 | Phase 8  | Index Analysis                       | ✅ Done (IndexAdvisor + PostgreSQLIndexInspector: leading-column check against pg_indexes, verified CREATE INDEX suggestions) |
 | Phase 9  | REST API                             | ✅ Done (core endpoints + error handling + connections API: registry, tester, controller, 404 mapping) |
 | Phase 10 | Frontend                             | ✅ Connections UI wired to real /api/connections; all dashboard elements functional (AI rec modal, Saved Queries w/ localStorage, Schema Explorer refresh, clickable schema lists); React auth UI deferred by user decision |
-| Phase 11 | Testing + Documentation              | ✅ Done (integration tests: 9 web API + 4 DB-backed MockMvc tests; teaching docs per phase) |
+| Phase 11 | Testing + Documentation              | ✅ Done (integration tests: 13 web API + 4 DB-backed MockMvc tests + 7 NVIDIA NIM client tests; teaching docs per phase) |
 
 ---
 

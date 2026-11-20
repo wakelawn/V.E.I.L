@@ -6,22 +6,22 @@
   <title>VEIL &bull; Sign In</title>
   <link rel="stylesheet" href="Css/design.css">
   <link rel="stylesheet" href="Css/content.css">
-  <link rel="stylesheet" href="Css/connectionbar.css">
   <link rel="stylesheet" href="Css/sidebar.css">
   <style>
     html, body { height: 100%; overflow: hidden; margin: 0; }
     body {
-      background: var(--page);
+      background: var(--color-bg);
       background-image: url(assets/bg-veil.jpeg);
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      color: var(--text);
-      font-family: Georgia, "Times New Roman", Times, serif;
+      color: var(--color-text);
+      font-family: var(--font-sans);
     }
     .lock {
       position: fixed; inset: 0; z-index: 0;
-      background: rgb(16 28 18 / 55%);
+      background: rgba(15, 36, 26, 0.65);
+      backdrop-filter: blur(4px);
     }
     .login-wrap {
       position: relative; z-index: 1;
@@ -29,54 +29,59 @@
       height: 100vh; width: 100vw; padding: 24px; box-sizing: border-box;
     }
     .login-card {
-      width: min(400px, 92vw);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 14px 40px rgb(25 42 27 / 18%);
+      width: min(420px, 92vw);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-modal);
       overflow: hidden;
     }
-    .login-brand { padding: 32px 24px 24px; text-align: center; }
-    .login-brand .brand-mark { font-size: 30px; line-height: 1; }
+    .login-brand { padding: 32px 24px 20px; text-align: center; border-bottom: 1px solid var(--color-surface-alt); }
+    .login-brand .brand-mark { color: var(--color-accent-green); font-size: 24px; line-height: 1; margin-bottom: 4px; }
     .login-brand .brand-name {
-      font-size: 26px; font-weight: bolder; letter-spacing: 3px; margin-top: 6px;
+      font-size: 22px; font-weight: 700; letter-spacing: -0.4px; color: var(--color-text); display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .login-brand .brand-tag { font-size: 11px; margin-top: 4px; color: var(--muted); }
+    .login-brand .brand-tag { font-size: 12px; margin-top: 4px; color: var(--color-text-muted); }
     .login-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-    .login-body h2 { font-size: 16px; font-weight: 650; color: var(--text); margin: 0; text-align: center; }
-    .login-body p.sub { font-size: 12px; color: var(--muted); text-align: center; margin: 0 0 4px; }
-    .field { display: flex; flex-direction: column; gap: 5px; }
-    .field label { font-size: 11px; font-weight: 600; color: var(--muted); }
+    .login-body h2 { font-size: 16px; font-weight: 700; color: var(--color-text); margin: 0; text-align: center; }
+    .login-body p.sub { font-size: 12px; color: var(--color-text-muted); text-align: center; margin: 0 0 4px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.2px; }
     .field input {
-      min-width: 0; border: 1px solid var(--border); border-radius: 8px;
-      padding: 8px 10px; outline: none; color: var(--text); background: var(--surface);
-      font-family: inherit; font-size: 13px;
+      min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-tight);
+      padding: 8px 12px; outline: none; color: var(--color-text); background: var(--color-surface);
+      font-family: inherit; font-size: var(--text-sm); transition: border-color var(--motion-fast);
     }
-    .field input:focus { border-color: var(--accent); }
+    .field input:focus { border-color: var(--color-border-focus); }
     .pw-wrap { position: relative; }
-    .pw-wrap input { width: 100%; padding-right: 36px; }
+    .pw-wrap input { width: 100%; padding-right: 36px; box-sizing: border-box; }
     .pw-toggle {
       position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
       background: none; border: 0;
-      color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px;
+      color: var(--color-text-muted); cursor: pointer; font-size: 14px; padding: 4px;
     }
-    .pw-toggle:hover { color: var(--accent); }
-    .opts { display: flex; align-items: center; font-size: 12px; }
-    .remember { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; font-size: 12px; }
-    .remember input { accent-color: var(--accent); }
+    .pw-toggle:hover { color: var(--color-primary); }
+    .opts { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+    .remember { display: flex; align-items: center; gap: 6px; color: var(--color-text); cursor: pointer; }
+    .remember input { accent-color: var(--color-primary); }
     .btn-login {
-      width: 100%; padding: 10px 16px; border: 1px solid var(--accent);
-      border-radius: 8px; color: #ffffff; background: var(--accent);
-      font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px;
+      width: 100%; padding: 10px 16px; border: 1px solid var(--color-primary);
+      border-radius: var(--radius-tight); color: #ffffff; background: var(--color-primary);
+      font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background var(--motion-fast);
     }
-    .btn-login:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
-    .btn-login:active { transform: translateY(1px); }
+    .btn-login:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+    .btn-demo {
+      width: 100%; padding: 8px 16px; border: 1px dashed var(--color-border-strong);
+      border-radius: var(--radius-tight); color: var(--color-primary); background: rgba(45, 90, 63, 0.05);
+      font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all var(--motion-fast);
+    }
+    .btn-demo:hover { background: rgba(45, 90, 63, 0.12); border-color: var(--color-primary); }
     .error-msg {
-      display: none; padding: 8px 12px; border: 1px solid #e8c8c0;
-      border-radius: 8px; color: var(--bad); background: #fff8f6;
-      font-size: 12px; margin-bottom: 8px; text-align: center;
+      display: none; padding: 8px 12px; border: 1px solid #fca5a5;
+      border-radius: var(--radius-tight); color: var(--color-bad); background: #fef2f2;
+      font-size: 12px; text-align: center;
     }
-    @media (max-width: 480px) { .login-card { width: 90vw; margin: 16px; } }
+    @media (max-width: 480px) { .login-card { width: 92vw; } }
   </style>
 </head>
 <body>
@@ -93,50 +98,52 @@
         <div class="error-msg" id="loginError">Invalid email or password.</div>
         <div class="field">
           <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email">
+          <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email" value="demo@veil.app">
         </div>
         <div class="field">
           <label for="loginPassword">Password</label>
           <div class="pw-wrap">
-            <input type="password" id="loginPassword" placeholder="••••••" autocomplete="current-password">
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" value="veil123">
             <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">&#128065;</button>
           </div>
         </div>
         <div class="opts">
-          <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
+          <label class="remember"><input type="checkbox" id="rememberMe" checked> Remember me</label>
         </div>
-        <button class="btn-login" id="loginBtn">Sign in</button>
+        <button class="btn-login" id="loginBtn" type="button">Sign in</button>
+        <button class="btn-demo" id="demoBtn" type="button">One-Click Demo Access</button>
       </div>
     </div>
   </div>
   <script src="JS/auth.js"></script>
   <script>
-    // already signed in? go straight to the dashboard
+    // If already signed in, go straight to index.html
     window.VEILAuth.redirectIfAuthed();
+
     document.getElementById('pwToggle').addEventListener('click', function () {
       const inp = document.getElementById('loginPassword');
       const show = inp.type === 'password';
       inp.type = show ? 'text' : 'password';
-      // textContent does not decode HTML entities - use the real
-      // unicode characters so the icon actually switches (eye = show,
-      // see-no-evil = hide)
       this.textContent = show ? '\u{1F441}' : '\u{1F648}';
     });
 
-    document.getElementById('loginBtn').addEventListener('click', (e) => {
-      e.preventDefault();
+    function doLogin() {
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
       const remember = document.getElementById('rememberMe').checked;
+      sessionStorage.removeItem('veil_logged_out');
       window.VEILAuth.login(email, password, remember);
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
+    document.getElementById('demoBtn').addEventListener('click', () => {
+      document.getElementById('loginEmail').value = 'demo@veil.app';
+      document.getElementById('loginPassword').value = 'veil123';
+      doLogin();
     });
+
     document.getElementById('loginPassword').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        const remember = document.getElementById('rememberMe').checked;
-        window.VEILAuth.login(email, password, remember);
-      }
+      if (e.key === 'Enter') doLogin();
     });
   </script>
 </body>

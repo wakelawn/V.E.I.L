@@ -924,7 +924,43 @@ The following parts are considered future work:
 - full optimizer
 - semantic analyzer
 - deeper plan-tree analysis
-- intelligent index recommendation system
 - execution history comparison
 - support for more SQL statement types
 - advanced query transformation suggestions
+
+---
+
+# AI Recommendations with NVIDIA NIM
+
+The AI Recommendations page can ask **NVIDIA NIM** for index advice
+instead of only using the local rules. VEIL sends the query, its
+PostgreSQL plan, and the active schema to the backend, which calls NIM's
+OpenAI-compatible chat completions endpoint and returns structured
+findings (title, message, severity, suggested SQL).
+
+Setup is one environment variable:
+
+```bash
+export NVIDIA_API_KEY=nvapi-...
+export DB_PASSWORD=...
+sh mvnw spring-boot:run
+```
+
+- `NVIDIA_NIM_MODEL` changes the model (default:
+  `nvidia/nemotron-3.5-lightning-30b-a3b`).
+- `NVIDIA_NIM_BASE_URL` points at a self-hosted NIM container.
+- The key never reaches the browser. A key typed in the AI Model dialog
+  is kept in `sessionStorage` for that tab only.
+- If NIM is not configured or unreachable, the page falls back to the
+  real Java findings (`/api/analyze`) and says so instead of inventing
+  numbers.
+
+Endpoints:
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/ai/status` | Whether the backend has a key (no key returned) |
+| `POST` | `/api/ai/recommend` | SQL + plan + schema → structured recommendations |
+| `POST` | `/api/ai/chat` | Copilot reply using the same context |
+
+Full guide: [`nvidia-nim.md`](nvidia-nim.md).

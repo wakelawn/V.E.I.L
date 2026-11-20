@@ -3,270 +3,785 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   
-
-    <link rel = "stylesheet" href = "Css/design.css">
-    <link rel = "stylesheet" href = "Css/sidebar.css"> 
-    <link rel = "stylesheet" href = "Css/content.css"> 
-    <link rel = "stylesheet" href = "Css/connectionbar.css"> 
-    <!-- <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@200..900&display=swap" rel="stylesheet">
-     -->
-    <title>VEIL</title>
-    
-    
-    
+    <link rel="stylesheet" href="Css/design.css">
+    <link rel="stylesheet" href="Css/sidebar.css">
+    <link rel="stylesheet" href="Css/content.css">
+    <title>VEIL — Query Intelligence Platform</title>
 </head>
 <body>
     <div class="app">
-
-        <aside class="sidebar">
-<div class="brand">
-      <div class="brand-name"><span class="brand-mark">&#9660;</span> VEIL</div>
-      <div class="brand-tag">Query Intelligence Platform</div>
-    </div>
-
-    <nav class="nav">
-      <a class="nav-item active" data-nav="analyzer"><span class="ico">&#9638;</span> Query Analyzer</a>
-      <a class="nav-item" data-nav="connections"><span class="ico">&#9636;</span> Database Connections</a>
-      
-      <a class="nav-item" data-nav="schema"><span class="ico">&#9638;</span> Schema Explorer</a>
-      <a class="nav-item" data-nav="saved"><span class="ico">&#9873;</span> Saved Queries</a> 
-      <a class="nav-item" data-nav="ai"><span class="ico">&#10022;</span> AI Recommendations</a> 
-      
-      
-    
-    
-
-    </nav>
-    
-
-    <div class="side-foot">
-      <span class="dot ok"></span>
-      <div>
-        <div class="side-foot-status" id="sideStatus">Connected</div>
-        <div class="side-foot-name" id="sideConn">Default PostgreSQL</div>
-      </div>
-    </div>
-    <button class="btn-ghost" id="logoutBtn" style="margin-top:12px; width:100%; text-align:left;">
-      <span style="margin-right:8px;">&#128273;</span> Sign out
-    </button>
-  </aside>
-
-  
-
-<main class="content">
-
-    <section class="conn-bar">
-        <div class="field">
-            <label for="connSelect">Database Connection</label>
-            <div class="conn-select-wrap">
-                <select id ="connSelect">
-                    <option>Default PostgreSQL</option>
-                </select>
-                <span class="conn-status">
-                    <span class="dot ok" id="connDot"></span>
-                <span id="connStatus">Connected</span></span>
-
+        <!-- Left Sidebar (Full Height, Matching image.png) -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Brand at top of sidebar -->
+            <div class="brand">
+                <div class="brand-header">
+                    <span class="brand-triangle">&#9660;</span>
+                    <span class="brand-name">VEIL</span>
+                </div>
+                <div class="brand-tag">Query Intelligence Platform</div>
             </div>
-        </div>
 
-        <button class="btn-outline" id="addConnBtn">+Add Connection</button>
-        <div class="spacer"></div>
+            <!-- Navigation Links -->
+            <nav class="nav" aria-label="Main navigation">
+                <a class="nav-item active" data-nav="analyzer" href="#" title="Query Analyzer">
+                    <span class="ico">&#9638;</span> Query Analyzer
+                </a>
+                <a class="nav-item" data-nav="connections" href="#" title="Database Connections">
+                    <span class="ico">&#9636;</span> Database Connections
+                </a>
+                <a class="nav-item" data-nav="schema" href="#" title="Schema Explorer">
+                    <span class="ico">&#9638;</span> Schema Explorer
+                </a>
+                <a class="nav-item" data-nav="saved" href="#" title="Saved Queries">
+                    <span class="ico">&#9873;</span> Saved Queries
+                </a>
+                <a class="nav-item" data-nav="ai" href="#" title="AI Recommendations & Chat Assistant">
+                    <span class="ico">&#10022;</span> AI Recommendations
+                </a>
+            </nav>
 
-        <div class="field">
-            <label for="dbType">Database Type</label>
-        <select id="dbType">
-            <option>PostgreSQL</option>
-            <option>MySQL</option>
-            <option>SQLite</option>
-            <option>SQL Server</option>
-            <option>Mongodb</option>
-        </select>
-        </div>
+            <!-- Sidebar Connection Status Footer -->
+            <div class="side-foot">
+                <span class="side-foot-dot off" id="sideDot"></span>
+                <div class="side-foot-info">
+                    <div class="side-foot-status" id="sideStatus">Offline</div>
+                    <div class="side-foot-name" id="sideConn">Default PostgreSQL</div>
+                </div>
+            </div>
 
-        <div class="chips">
-            <span class="chip">&#10003; EXPLAIN</span>
-            <span class="chip">&#10003; Indexes</span>
-            <span class="chip">&#10003; Schema</span>
-            <span class="chip">&#10003; Transactions</span>
-        </div>
-        
+            <!-- Sign out Button -->
+            <button class="btn-signout" id="logoutBtn" type="button">
+                <span class="ico">&#128273;</span> Sign out
+            </button>
+        </aside>
 
-</section>
+        <!-- Main Dashboard Viewport -->
+        <div class="main">
+            <!-- Top Database Connection Toolbar -->
+            <header class="conn-toolbar">
+                <div class="conn-left">
+                    <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">&#9776;</button>
+                    <div class="conn-field">
+                        <label for="connSelect">Database Connection</label>
+                        <div class="conn-select-wrap">
+                            <select id="connSelect">
+                                <option value="0">Default PostgreSQL</option>
+                            </select>
+                            <span class="conn-status" id="connStatusBox">
+                                <span class="dot off" id="connDot"></span>
+                                <span class="label offline" id="connStatus">Offline</span>
+                            </span>
+                        </div>
+                    </div>
+                    <button class="btn primary btn-conn-add" id="addConnBtn" type="button">+ Add Connection</button>
+                </div>
 
- 
+                <div class="conn-right">
+                    <div class="conn-field">
+                        <label for="dbType">Database Type</label>
+                        <select id="dbType">
+                            <option>PostgreSQL</option>
+                            <option>MySQL</option>
+                            <option>SQLite</option>
+                            <option>SQL Server</option>
+                            <option>Mongodb</option>
+                        </select>
+                    </div>
 
-<section class="row row-top">
+                    <div class="conn-divider" aria-hidden="true"></div>
 
-   <section class="left-part">
-        <div class="card-query">
-        <div class="card-head">
-            <h2>Query Editor</h2><span class="badge-sql">SQL</span>
-            <button class="btn-small push" id="formatTopBtn">Format</button>
-        </div>
-        <div class="card-body editor-body">
-            <div class="editor-wrap">
-                <pre class="line-nums" id="lineNums" aria-hidden="true"></pre>
-                <div class="code-area">
-              <pre class="sql-highlight" id="sqlHighlight" aria-hidden="true"></pre>
-              <textarea id="sqlInput" class="sql-input" wrap="off" spellcheck="false" placeholder="Paste your SQL query here...">SELECT q.id, q.query_text, p.name
+                    <div class="toolbar-actions-group">
+                        <button class="toolbar-btn active" id="tbBtnExplain" type="button" title="Run EXPLAIN on active query">
+                            <span class="tb-ico">&#9889;</span> EXPLAIN
+                        </button>
+                        <button class="toolbar-btn" id="tbBtnIndexes" type="button" title="View database indexes in Schema Explorer">
+                            <span class="tb-ico">&#9670;</span> Indexes
+                        </button>
+                        <button class="toolbar-btn" id="tbBtnSchema" type="button" title="Open full Database Schema Explorer">
+                            <span class="tb-ico">&#9638;</span> Schema
+                        </button>
+                        <button class="toolbar-btn" id="tbBtnVeilAi" type="button" title="Open VEIL AI Recommendations & Copilot">
+                            <span class="tb-ico">&#10022;</span> VEIL AI
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ================= VIEW 1: QUERY ANALYZER WORKSPACE ================= -->
+            <main class="workspace analyzer-workspace" id="viewAnalyzer">
+                <div class="analyzer-grid">
+                    <!-- Left Column: Query Editor (Generous horizontal space, breathable) -->
+                    <div class="analyzer-col-editor">
+                        <section class="editor-panel card" aria-label="Query Editor">
+                            <div class="editor-header">
+                                <div class="editor-title">
+                                    <h2>Query Editor<span class="lang">SQL</span></h2>
+                                </div>
+                                <div class="editor-actions">
+                                    <button class="btn ghost btn-small" id="formatBtn" type="button">Format</button>
+                                    <button class="btn ghost btn-small" id="clearBtn" type="button">Clear</button>
+                                    <button class="btn ghost btn-small" id="templatesBtn" type="button">Templates</button>
+                                    <button class="btn primary btn-small" id="analyzeBtn" type="button">&#9889; Analyze Query</button>
+                                </div>
+                            </div>
+
+                            <div class="editor-body">
+                                <div class="editor-wrap">
+                                    <pre class="line-nums" id="lineNums" aria-hidden="true"></pre>
+                                    <div class="code-area">
+                                        <pre class="sql-highlight" id="sqlHighlight" aria-hidden="true"></pre>
+                                        <textarea id="sqlInput" class="sql-input" wrap="off" spellcheck="false" placeholder="Paste your SQL query here...">SELECT q.id, q.query_text, p.name
 FROM queries q
 JOIN projects p ON q.project_id = p.id
 WHERE p.id = 1 AND q.status = 'done'
 ORDER BY q.created_at DESC
 LIMIT 5;</textarea>
+                                    </div>
+                                </div>
+                                <div id="errorBox" class="error-box" hidden></div>
+                            </div>
+
+                            <div class="editor-footer">
+                                <div class="editor-status">
+                                    <span id="cursorPos">Ln 1, Col 1</span>
+                                    <span class="sep">&bull;</span>
+                                    <span id="lineCount">5 lines</span>
+                                </div>
+                                <span class="shortcut">Ctrl + Enter to run</span>
+                            </div>
+                        </section>
+
+                        <!-- Bottom Half: AI Optimized Query Panel (Uncluttered, evenly balanced) -->
+                        <section class="card optimized-panel" aria-label="AI Optimized Query">
+                            <div class="optimized-header">
+                                <div class="optimized-title-wrap">
+                                    <h2>AI Optimized Query</h2>
+                                    <span class="opt-pill ok" id="optSpeedupBadge">~80% Faster</span>
+                                </div>
+                                <div class="optimized-actions">
+                                    <button class="btn ghost btn-small" id="optCopyBtn" type="button" title="Copy optimized SQL">&#128203; Copy</button>
+                                    <button class="btn primary btn-small" id="optApplyBtn" type="button" title="Replace query in editor with this optimized version">&#9889; Apply Query</button>
+                                </div>
+                            </div>
+
+                            <div class="optimized-body">
+                                <div class="optimized-code-wrap">
+                                    <pre class="line-nums opt-line-nums" id="optLineNums" aria-hidden="true"></pre>
+                                    <div class="opt-code-area" id="optCodeArea">
+                                        <pre class="sql-highlight opt-sql-highlight" id="optSqlHighlight"></pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="optimized-footer">
+                                <div class="opt-footer-left">
+                                    <span>Cost: <b id="optCostVal">2.45</b> <span class="cost-diff" id="optCostDiff">(-83%)</span></span>
+                                    <span class="sep">&bull;</span>
+                                    <span>Est. <b id="optRowsVal">10</b> rows</span>
+                                    <span class="sep">&bull;</span>
+                                    <span class="opt-strategy-text" id="optStrategyBadge">CTE Early Aggregation</span>
+                                </div>
+                                <div class="opt-footer-right">
+                                    <button class="opt-link-btn" id="optCopilotBtn" type="button" title="Open in VEIL AI">VEIL &rarr;</button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Right Column: Analysis Tabs on the Side (Plan Details, Query Info, Execution Plan Tree & JSON) -->
+                    <div class="analyzer-col-side">
+                        <!-- Top Card: Plan Details & Query Info Tabs -->
+                        <section class="card plan-details-panel">
+                            <div class="card-head">
+                                <div class="tabs">
+                                    <button class="tab-btn active" data-group="planDetailsGroup" data-target="tabPlanDetails" type="button">Plan Details</button>
+                                    <button class="tab-btn" data-group="planDetailsGroup" data-target="tabQueryInfo" type="button">Query Information</button>
+                                </div>
+                                <span class="status-pill ok" id="planStatusBadge">&#9679; Analysis Ready</span>
+                            </div>
+                            <div class="card-body">
+                                <!-- Tab 1: Plan Details -->
+                                <div class="tab-pane active" data-group="planDetailsGroup" id="tabPlanDetails">
+                                    <div class="plan-details-empty" id="planDetailsEmpty" hidden>
+                                        Run query analysis to inspect execution plan details, costs, and timing.
+                                    </div>
+                                    <div class="plan-details" id="planDetailsWrap">
+                                        <div class="plan-detail-kv" id="planDetails"></div>
+                                        <div class="plan-desc" id="planDesc"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Tab 2: Query Information -->
+                                <div class="tab-pane" data-group="planDetailsGroup" id="tabQueryInfo">
+                                    <dl class="kv" id="queryInfo"></dl>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Bottom Card: Execution Plan (Tree View & Raw JSON) -->
+                        <section class="card plan-panel">
+                            <div class="card-head">
+                                <h2>Execution Plan</h2>
+                                <div class="tabs">
+                                    <button class="tab-btn active" data-group="plan" data-target="planTreeTab" type="button">Tree View</button>
+                                    <button class="tab-btn" data-group="plan" data-target="planJsonTab" type="button">Raw JSON</button>
+                                </div>
+                                <button class="btn ghost btn-small" id="copyPlanBtn" type="button" title="Copy raw execution plan JSON">&#128203; Copy JSON</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-pane active" data-group="plan" id="planTreeTab">
+                                    <div class="plan-tree" id="planTree"></div>
+                                </div>
+                                <div class="tab-pane" data-group="plan" id="planJsonTab">
+                                    <textarea class="plan-json-out" id="planJsonOut" readonly spellcheck="false"></textarea>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ================= VIEW 2: DEDICATED AI RECOMMENDATIONS & COPILOT ================= -->
+            <main class="workspace ai-workspace" id="viewAi" hidden>
+                <!-- AI Top Bar -->
+                <div class="ai-header-bar">
+                    <div class="ai-header-info">
+                        <span class="ai-header-ico">&#10022;</span>
+                        <div class="ai-header-titles">
+                            <h1>AI Recommendations & Copilot</h1>
+                            <p>Automated index recommendations, query bottleneck diagnostics, and interactive AI DBA assistant.</p>
+                        </div>
+                    </div>
+                    <div class="ai-header-actions">
+                        <span class="ai-badge fallback" id="aiModelBadge">Rule-Based Engine (Demo)</span>
+                        <button class="btn ghost btn-small" id="aiSettingsBtn" type="button" title="Configure AI Model and API Key">&#9881; AI Model</button>
+                        <button class="btn primary btn-small" id="backToAnalyzerBtn" type="button">&#8592; Back to Query Analyzer</button>
+                    </div>
+                </div>
+
+                <!-- 2-Column AI Grid: Left (Diagnostics & Recs) | Right (Interactive Chat) -->
+                <div class="ai-grid">
+                    <!-- Left Column: Query Breakdown & Deep Recommendations -->
+                    <div class="ai-col-left">
+                        <!-- Card 1: Active Analyzed SQL Query -->
+                        <section class="card ai-card-query">
+                            <div class="card-head">
+                                <div class="ai-card-title-group">
+                                    <span class="ai-card-icon">⚡</span>
+                                    <h2>Analyzed SQL Query</h2>
+                                    <span class="ai-lang-tag">SQL</span>
+                                </div>
+                                <button class="btn ghost btn-small" id="aiCopyQueryBtn" type="button">&#128203; Copy SQL</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="ai-query-preview-wrap">
+                                    <pre><code id="aiQueryPreviewCode">SELECT q.id, q.query_text, p.name FROM queries q JOIN projects p ON q.project_id = p.id WHERE p.id = 1 AND q.status = 'done' ORDER BY q.created_at DESC LIMIT 5;</code></pre>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Card 2: Performance Impact & Estimates (Cleanly Separated) -->
+                        <section class="card ai-card-metrics">
+                            <div class="card-head">
+                                <div class="ai-card-title-group">
+                                    <span class="ai-card-icon">📊</span>
+                                    <h2>Performance Impact & Estimates</h2>
+                                </div>
+                                <span class="ai-meta-badge">PostgreSQL Engine</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="ai-metrics-row">
+                                    <div class="ai-metric-box">
+                                        <span class="metric-label">Query Type</span>
+                                        <div class="metric-val-wrap">
+                                            <span class="metric-val" id="aiMetaType">SELECT</span>
+                                        </div>
+                                    </div>
+                                    <div class="ai-metric-box">
+                                        <span class="metric-label">Estimated Cost</span>
+                                        <div class="metric-val-wrap">
+                                            <span class="metric-val" id="aiMetaCost">14.86</span>
+                                            <span class="metric-sub">cost</span>
+                                        </div>
+                                    </div>
+                                    <div class="ai-metric-box">
+                                        <span class="metric-label">Estimated Rows</span>
+                                        <div class="metric-val-wrap">
+                                            <span class="metric-val" id="aiMetaRows">5</span>
+                                            <span class="metric-sub">rows</span>
+                                        </div>
+                                    </div>
+                                    <div class="ai-metric-box highlight-speedup">
+                                        <span class="metric-label">Expected Speedup</span>
+                                        <div class="metric-val-wrap">
+                                            <span class="metric-val highlight-green" id="aiMetaImprovement">~75-85%</span>
+                                            <span class="speedup-pill">Gain</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Card 3: Deep AI Audit & Recommendations -->
+                        <section class="card ai-card-audit">
+                            <div class="card-head">
+                                <div class="ai-card-title-group">
+                                    <span class="ai-card-icon">✦</span>
+                                    <h2>Performance Audit & Recommendations <span class="rec-count" id="aiFullRecCount">(2)</span></h2>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- Executive Plan Summary -->
+                                <div class="ai-section-group">
+                                    <span class="ai-section-label">Executive Audit Summary</span>
+                                    <div class="ai-summary-callout" id="aiFullSummary">
+                                        Plan evaluated for queries, projects. Estimated total cost: 14.86 units across 5 estimated rows.
+                                    </div>
+                                </div>
+
+                                <!-- Bottleneck Nodes -->
+                                <div class="ai-section-group">
+                                    <span class="ai-section-label">Identified Bottlenecks</span>
+                                    <div class="ai-bottlenecks-wrap" id="aiBottlenecksList">
+                                        <span class="bottleneck-tag">&#9888; Sequential Scan on queries</span>
+                                        <span class="bottleneck-tag">&#9888; In-Memory Sort Node Overhead</span>
+                                    </div>
+                                </div>
+
+                                <!-- Actionable Recommendations -->
+                                <div class="ai-section-group ai-recs-group">
+                                    <span class="ai-section-label">Actionable Optimizations</span>
+                                    <div class="ai-rec-list" id="aiFullRecList"></div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Right Column: Interactive AI DBA Chat Copilot -->
+                    <div class="ai-col-right">
+                        <section class="chat-card">
+                            <div class="chat-card-head">
+                                <div class="chat-header-title">
+                                    <span class="chat-sparkle">&#10022;</span>
+                                    <div>
+                                        <h2>VEIL AI Copilot</h2>
+                                    </div>
+                                </div>
+                                <span class="chat-status-pill">
+                                    <span class="chat-status-dot"></span> Online / Ready
+                                </span>
+                            </div>
+
+                            <!-- Quick Suggestion Prompt Chips -->
+                            <div class="chat-chips-bar">
+                                <button class="prompt-chip" type="button" data-prompt="What makes this query slow and how can I fix it?">&#9889; Why is this query slow?</button>
+                                <button class="prompt-chip" type="button" data-prompt="Suggest the best compound index for this query with exact SQL">&#128736; Suggest indexes</button>
+                                <button class="prompt-chip" type="button" data-prompt="Can you rewrite this query using a CTE or subquery?">&#128260; Rewrite with CTE</button>
+                                <button class="prompt-chip" type="button" data-prompt="Explain the execution plan nodes and cost breakdown">&#128202; Explain plan nodes</button>
+                            </div>
+
+                            <!-- Chat Stream Messages -->
+                            <div class="chat-messages" id="chatMessages"></div>
+
+                            <!-- Chat Input Box -->
+                            <div class="chat-input-bar">
+                                <input id="chatInput" placeholder="Ask AI assistant about optimizing this query, indexing, or PostgreSQL internals..." autocomplete="off">
+                                <button class="chat-send-btn" id="chatSendBtn" type="button">Send &#10148;</button>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ================= VIEW 3: DEDICATED DATABASE SCHEMA EXPLORER ================= -->
+            <main class="workspace schema-workspace" id="viewSchema" hidden>
+                <!-- Schema Header Context Bar -->
+                <div class="schema-header-bar">
+                    <div class="schema-header-left">
+                        <span class="schema-header-ico">&#9638;</span>
+                        <div class="schema-header-titles">
+                            <h1>Database Schema Explorer</h1>
+                            <p>Introspect tables, schemas, column datatypes, indexes, and sample data for the active database.</p>
+                        </div>
+                    </div>
+                    <div class="schema-stats-row">
+                        <span class="stat-pill ok" id="schemaConnPill">
+                            <span class="dot ok" id="schemaConnDot"></span>
+                            <span id="schemaConnStatusText">Connected &bull; Default PostgreSQL</span>
+                        </span>
+                        <span class="stat-pill"><b id="schemaTableCount">5</b> Tables</span>
+                        <span class="stat-pill"><b id="schemaTotalRows">106,150</b> Records</span>
+                        <span class="stat-pill"><b id="schemaIndexCount">8</b> Indexes</span>
+                    </div>
+                    <div class="schema-header-actions">
+                        <button class="btn ghost btn-small" id="refreshSchemaBtn" type="button" title="Reload schema introspection">&#8635; Refresh</button>
+                        <button class="btn primary btn-small" id="schemaBackBtn" type="button">&#8592; Back to Query Analyzer</button>
+                    </div>
+                </div>
+
+                <!-- Master-Detail 2-Column Schema Grid -->
+                <div class="schema-grid">
+                    <!-- Left Column: Tables & Indexes Catalog -->
+                    <div class="schema-catalog-col">
+                        <section class="card schema-catalog-card">
+                            <div class="schema-catalog-header">
+                                <div class="schema-catalog-tabs">
+                                    <button class="tab-btn active" data-group="schemaCatalog" data-target="catalogTablesTab" type="button">Tables (<span id="catTablesCount">5</span>)</button>
+                                    <button class="tab-btn" data-group="schemaCatalog" data-target="catalogIndexesTab" type="button">Indexes (<span id="catIndexesCount">8</span>)</button>
+                                </div>
+                                <input class="schema-search" id="schemaCatalogSearch" placeholder="Search tables, columns, indexes..." autocomplete="off">
+                            </div>
+                            <div class="schema-catalog-body">
+                                <div class="tab-pane active" data-group="schemaCatalog" id="catalogTablesTab">
+                                    <ul class="schema-table-list" id="schemaTablesUl"></ul>
+                                </div>
+                                <div class="tab-pane" data-group="schemaCatalog" id="catalogIndexesTab">
+                                    <ul class="schema-all-index-list" id="schemaIndexesUl"></ul>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Right Column: Selected Table Details Workspace -->
+                    <div class="schema-detail-col">
+                        <section class="card schema-detail-card">
+                            <div class="schema-detail-top">
+                                <div class="schema-detail-title-wrap">
+                                    <span class="schema-header-ico">&#9638;</span>
+                                    <h2 id="selectedTableName">queries</h2>
+                                    <span class="table-type-badge">Base Table</span>
+                                    <span class="table-rows-badge" id="selectedTableRows">14,200 rows</span>
+                                </div>
+                                <div class="schema-detail-actions">
+                                    <button class="btn ghost btn-small" id="copyTableNameBtn" type="button" title="Copy table name">&#128203; Copy Name</button>
+                                    <button class="btn ghost btn-small" id="copyDdlBtn" type="button" title="Copy SQL DDL">&#128203; Copy DDL</button>
+                                    <button class="btn primary btn-small" id="openInEditorBtn" type="button" title="Open query in editor">&#9889; SELECT in Editor</button>
+                                </div>
+                            </div>
+                            <div class="schema-detail-tabs-bar">
+                                <div class="tabs">
+                                    <button class="tab-btn active" data-group="tableDetail" data-target="tabColumns" type="button">Columns (<span id="tableColCount">7</span>)</button>
+                                    <button class="tab-btn" data-group="tableDetail" data-target="tabIndexes" type="button">Indexes (<span id="tableIdxCount">3</span>)</button>
+                                    <button class="tab-btn" data-group="tableDetail" data-target="tabDataPreview" type="button">Data Preview</button>
+                                    <button class="tab-btn" data-group="tableDetail" data-target="tabDdl" type="button">SQL DDL</button>
+                                </div>
+                            </div>
+                            <div class="schema-detail-body">
+                                <!-- Columns Tab -->
+                                <div class="tab-pane active" data-group="tableDetail" id="tabColumns">
+                                    <table class="schema-data-table" id="columnsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Column Name</th>
+                                                <th>Data Type</th>
+                                                <th>Keys / Constraints</th>
+                                                <th>Nullable</th>
+                                                <th>Default Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="columnsTbody"></tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Indexes Tab -->
+                                <div class="tab-pane" data-group="tableDetail" id="tabIndexes">
+                                    <table class="schema-data-table" id="indexesTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Index Name</th>
+                                                <th>Type / Access Method</th>
+                                                <th>Indexed Columns</th>
+                                                <th>Uniqueness</th>
+                                                <th>Constraint</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="indexesTbody"></tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Data Preview Tab -->
+                                <div class="tab-pane" data-group="tableDetail" id="tabDataPreview">
+                                    <div class="sample-data-table-wrap">
+                                        <table class="schema-data-table" id="sampleDataTable">
+                                            <thead id="sampleDataThead"></thead>
+                                            <tbody id="sampleDataTbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- DDL Source Tab -->
+                                <div class="tab-pane" data-group="tableDetail" id="tabDdl">
+                                    <pre class="schema-ddl-box" id="tableDdlCode"></pre>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Connection Modal -->
+    <div class="modal" id="connModal" hidden>
+        <div class="modal-box">
+            <h2>Add Connection</h2>
+            <p class="modal-desc">Connect to a PostgreSQL database. Configuration will be saved to your connections.</p>
+            <label>Name <input id="newConnName" placeholder="e.g. Production PostgreSQL"></label>
+            <label>Type
+                <select id="newConnType">
+                    <option>PostgreSQL</option>
+                    <option>MySQL</option>
+                    <option>SQLite</option>
+                    <option>SQL Server</option>
+                </select>
+            </label>
+            <label>Host <input id="newConnHost" placeholder="localhost:5432"></label>
+            <label>Database <input id="newConnDatabase" placeholder="e.g. veil"></label>
+            <label>Username <input id="newConnUsername" placeholder="postgres"></label>
+            <label>Password <input id="newConnPassword" type="password" placeholder="••••••••"></label>
+            <div class="modal-actions">
+                <button class="btn ghost" id="cancelConn" type="button">Cancel</button>
+                <button class="btn primary" id="saveConn" type="button">Save Connection</button>
             </div>
-            </div>
-            <div id="errorBox" class="error-box" role="alert" hidden></div>
-            <div class="btn-row">
-                <button class="btn-primary" id="analyzeBtn">Analyze Query</button>
-                <button class="btn-ghost" id="formatBtn">Format SQL</button>
-                <button class="btn-ghost" id="clearBtn">Clear</button>
-                <span class="shortcut">ctrl + enter</span>
-            </div>
-        </div>
-    </div>
-    </section>
-
-    <section class="right-part">
-        
-    <div class="card">
-        <div class="card-head"><h2>Query Information</h2></div>
-        <div class="card-body">
-            <dl class="kv" id="queryInfo"></dl>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-head"><h2>Database Schema</h2></div>
-        <div class="tabs">
-            <button class="tab-btn active" data-group="schema" data-target="schemaTables">Tables</button>
-            <button class="tab-btn" data-group="schema" data-target="schemaIndexes">Indexes</button>
-        </div>
-        <div class="card-body schema-body">
-            <input class="search" id="schemaSearch" placeholder="Search..." autocomplete="off">
-            <div class="tab-pane active" data-group="schema" id="schemaTables">
-                <ul class="list" id="tableList"></ul>
-            </div>
-            <div class="tab-pane" data-group="schema" id="schemaIndexes">
-                <ul class="list" id="indexList"></ul>
+    <!-- AI Model Settings Modal -->
+    <div class="modal" id="aiConfigModal" hidden>
+        <div class="modal-box">
+            <h2>AI Model & Backend Settings</h2>
+            <p class="modal-desc">Configure the AI engine for query optimization recommendations. NVIDIA NIM is the default and runs through the VEIL backend, so its key never reaches the browser.</p>
+            <label>AI Provider
+                <select id="aiProviderSelect">
+                    <option value="nvidia">NVIDIA NIM (VEIL backend)</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                    <option value="anthropic">Anthropic Claude</option>
+                </select>
+            </label>
+            <label>Model Name
+                <input id="aiModelInput" placeholder="e.g. nvidia/nemotron-3.5-lightning-30b-a3b">
+            </label>
+            <label>API Key (optional for NVIDIA)
+                <input id="aiKeyInput" type="password" placeholder="nvapi-... (prefer NVIDIA_API_KEY on the backend)">
+            </label>
+            <p class="modal-desc" style="font-size:11px;">For NVIDIA NIM, the backend reads <code>NVIDIA_API_KEY</code> at startup. A key typed here is kept in this tab only and is never written to localStorage.</p>
+            <label>Java Backend URL (Optional)
+                <input id="javaBackendInput" placeholder="http://localhost:8080 (or leave blank if same origin)">
+            </label>
+            <p class="modal-desc" id="aiConfigStatus" style="font-size:11px; color:var(--color-primary);">Status: checking NVIDIA NIM...</p>
+            <div class="modal-actions">
+                <button class="btn ghost" id="cancelAiConfig" type="button">Cancel</button>
+                <button class="btn primary" id="saveAiConfig" type="button">Save Settings</button>
             </div>
         </div>
     </div>
 
-</section>
-
-<section class="row row-mid">
-
-    <div class="card">
-        <div class="card-head"><h2>Execution Plan</h2></div>
-        <div class="tabs">
-            <button class="tab-btn active" data-group="plan" data-target="planTreePane">Tree View</button>
-            <button class="tab-btn" data-group="plan" data-target="planJson">JSON View</button>
-        </div>
-        <div class="card-body">
-            <div class="tab-pane active" data-group="plan" id="planTreePane">
-                <div id="planTree"></div>
-                <div id="viz"></div>
+    <!-- Saved Queries Modal -->
+    <div class="modal" id="savedModal" hidden>
+        <div class="modal-box">
+            <h2>Saved Queries</h2>
+            <p class="modal-desc">Save the active SQL query or select a saved query to load it into the editor.</p>
+            <label>Query Name <input id="savedName" placeholder="e.g. Slow join on projects table" autocomplete="off"></label>
+            <div class="modal-actions">
+                <button class="btn ghost" id="cancelSaved" type="button">Cancel</button>
+                <button class="btn primary" id="saveQueryBtn" type="button">Save Current Query</button>
             </div>
-            <div class="tab-pane" data-group="plan" id="planJson">
-                <pre class="json" id="planJsonOut"></pre>
-            </div>
+            <ul class="list saved-list" id="savedList"></ul>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-head"><h2>Plan Details</h2></div>
-        <div class="card-body">
-            <dl class="kv" id="planDetails"></dl>
-            <h3 class="sub">Description</h3>
-            <p class="desc" id="planDesc"></p>
-        </div>
-    </div>
+    <!-- Toast Notification -->
+    <div class="rec-toast" id="recToast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
-</section>
+    <!-- Pure Frontend JavaScript Architecture (Zero Conflicts with Java Backend) -->
+    <script src="JS/auth.js"></script>
+    <script>
+        // Auth guard: If no session, create a demo session automatically if opening directly in browser,
+        // or redirect to login.html if explicit logout
+        (function () {
+            if (window.VEILAuth) {
+                const session = window.VEILAuth.getSession();
+                if (!session) {
+                    const wasExplicitLogout = sessionStorage.getItem('veil_logged_out');
+                    if (wasExplicitLogout) {
+                        window.location.href = 'login.html';
+                    } else {
+                        sessionStorage.setItem('veil_session', JSON.stringify({
+                            user: { email: 'demo@veil.app', name: 'Demo User', role: 'Analyst' },
+                            loggedInAt: Date.now()
+                        }));
+                    }
+                }
+            }
+        })();
+    </script>
+    <script src="JS/api.js"></script>
+    <script src="JS/aiClient.js"></script>
+    <script src="JS/editor.js"></script>
+    <script src="JS/optimizer.js"></script>
+    <script src="JS/planViewer.js"></script>
+    <script src="JS/schemaViewer.js"></script>
+    <script src="JS/recommendations.js"></script>
+    <script src="JS/chat.js"></script>
+    <script src="JS/script.js"></script>
 
-<section class="row row-bottom">
-    <div class="card">
-        <div class="card-head"><h2>Recommendations <span id="recCount">(0)</span></h2></div>
-        <div class="card-body rec-body">
-            <p class="ai-summary" id="aiText"></p>
-            <div id="recList"></div>
-        </div>
-    </div>
+    <script>
+        // AI Model Settings Modal Handler
+        const aiModal = document.getElementById('aiConfigModal');
+        const aiBtn = document.getElementById('aiSettingsBtn');
+        const cancelAi = document.getElementById('cancelAiConfig');
+        const saveAi = document.getElementById('saveAiConfig');
+        const aiKeyInput = document.getElementById('aiKeyInput');
+        const aiProviderSelect = document.getElementById('aiProviderSelect');
+        const aiModelInput = document.getElementById('aiModelInput');
+        const javaBackendInput = document.getElementById('javaBackendInput');
+        const aiStatusText = document.getElementById('aiConfigStatus');
 
-</section>
-</main>
-</div>
+        const AI_DEFAULT_MODELS = {
+            nvidia: 'nvidia/nemotron-3.5-lightning-30b-a3b',
+            gemini: 'gemini-1.5-flash',
+            openai: 'gpt-4o-mini',
+            anthropic: 'claude-3-5-sonnet-latest'
+        };
+        let aiBackendStatus = null;
 
+        function refreshAiStatus() {
+            if (!aiStatusText) return;
+            const provider = aiProviderSelect.value;
+            const model = aiModelInput.value.trim() || AI_DEFAULT_MODELS[provider];
 
-<div class="modal" id="connModal" hidden>
-  <div class="modal-box">
-    <h2>Add Connection</h2>
-    <label>Name<input id="newConnName" placeholder="e.g. Local PostgreSQL"></label>
-    <label>Type
-      <select id="newConnType">
-        <option>PostgreSQL</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option>
-      </select>
-    </label>
-    <label>Host<input id="newConnHost" placeholder="localhost:5432"></label>
-    <label>Database<input id="newConnDatabase" placeholder="e.g. v.e.i.l"></label>
-    <label>Username<input id="newConnUsername" placeholder="postgres"></label>
-    <label>Password<input id="newConnPassword" type="password" placeholder="••••••••"></label>
-    <div class="modal-actions">
-      <button class="btn-ghost" id="cancelConn">Cancel</button>
-      <button class="btn-primary" id="saveConn">Save</button>
-    </div>
-  </div>
-</div>
+            if (provider === 'nvidia') {
+                const cfg = window.VEILAIEngine.getConfig();
+                if (aiBackendStatus && aiBackendStatus.configured) {
+                    aiStatusText.textContent = `Status: NVIDIA NIM key configured (${aiBackendStatus.model})`;
+                    aiStatusText.style.color = 'var(--color-ok)';
+                } else if (cfg.apiKey) {
+                    aiStatusText.textContent = `Status: NVIDIA NIM key active for this tab (${model})`;
+                    aiStatusText.style.color = 'var(--color-ok)';
+                } else {
+                    aiStatusText.textContent = 'Status: NVIDIA NIM key missing — set NVIDIA_API_KEY, or paste a key below for this tab.';
+                    aiStatusText.style.color = 'var(--color-warn)';
+                }
+                return;
+            }
 
-<div class="modal" id="recModal" hidden>
-  <div class="modal-box">
-    <h3>AI Recommendations</h3>
-    <p class="desc" id="recModalText">Run Analyze Query first - the AI summary of the execution plan will appear here.</p>
-    <div class="modal-actions">
-      <button class="btn-primary" id="recModalClose" type="button">OK</button>
-    </div>
-  </div>
-</div>
+            const cfg = window.VEILAIEngine.getConfig();
+            aiStatusText.textContent = cfg.apiKey
+                ? `Status: ${provider} key active for this tab (${model})`
+                : `Status: no ${provider} key — the VEIL backend analysis is used instead.`;
+            aiStatusText.style.color = cfg.apiKey ? 'var(--color-ok)' : 'var(--color-warn)';
+        }
 
-<div class="modal" id="savedModal" hidden>
-  <div class="modal-box">
-    <h2>Saved Queries</h2>
-    <label>Name
-      <input id="savedName" placeholder="e.g. slow join check" autocomplete="off">
-    </label>
-    <div class="modal-actions">
-      <button class="btn-ghost" id="cancelSaved">Cancel</button>
-      <button class="btn-primary" id="saveQueryBtn">Save Current Query</button>
-    </div>
-    <ul class="list saved-list" id="savedList"></ul>
-  </div>
-</div>
+        if (aiBtn && aiModal) {
+            aiBtn.addEventListener('click', () => {
+                const cfg = window.VEILAIEngine.getConfig();
+                const provider = cfg.provider || 'nvidia';
+                aiProviderSelect.value = provider;
+                aiModelInput.value = cfg.model || AI_DEFAULT_MODELS[provider] || '';
+                aiKeyInput.value = cfg.apiKey || '';
+                javaBackendInput.value = window.VEILApi.getBaseUrl();
 
+                aiStatusText.textContent = 'Status: checking NVIDIA NIM...';
+                aiStatusText.style.color = 'var(--color-primary)';
 
-<div class="rec-toast" id="recToast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+                aiModal.hidden = false;
 
+                window.VEILApi.getAiStatus()
+                    .then((status) => {
+                        aiBackendStatus = status;
+                        refreshAiStatus();
+                    })
+                    .catch(() => {
+                        aiBackendStatus = null;
+                        refreshAiStatus();
+                    });
 
-<script src="JS/auth.js"></script>
-<script>
-  // Auth guard: require a valid session before loading the dashboard
-  (function () {
-    if (!window.VEILAuth || !window.VEILAuth.getSession()) {
-      window.location.href = 'login.html';
-    }
-  })();
-</script>
-<script src="JS/script.js"></script>
-<script>
-  // Sign out handler
-  document.getElementById('logoutBtn').addEventListener('click', function () {
-    window.VEILAuth.logout();
-  });
-</script>
+                aiKeyInput.focus();
+            });
+        }
 
+        if (aiProviderSelect) {
+            aiProviderSelect.addEventListener('change', () => {
+                const provider = aiProviderSelect.value;
+                const current = aiModelInput.value.trim();
+                const defaults = Object.values(AI_DEFAULT_MODELS);
 
+                if (!current || defaults.includes(current)) {
+                    aiModelInput.value = AI_DEFAULT_MODELS[provider] || '';
+                }
+                refreshAiStatus();
+            });
+        }
+
+        if (cancelAi && aiModal) {
+            cancelAi.addEventListener('click', () => { aiModal.hidden = true; });
+            aiModal.addEventListener('click', (e) => { if (e.target === aiModal) aiModal.hidden = true; });
+        }
+
+        if (saveAi) {
+            saveAi.addEventListener('click', () => {
+                const apiKey = aiKeyInput.value.trim();
+                const provider = aiProviderSelect.value;
+                const model = aiModelInput.value.trim() || AI_DEFAULT_MODELS[provider];
+                const backendUrl = javaBackendInput.value.trim();
+
+                window.VEILAIEngine.saveConfig({ apiKey, provider, model });
+                window.VEILApi.setBaseUrl(backendUrl);
+
+                aiModal.hidden = true;
+
+                let msg;
+                if (provider === 'nvidia') {
+                    if (aiBackendStatus && aiBackendStatus.configured) {
+                        msg = `NVIDIA NIM settings saved. Recommendations use ${model}.`;
+                    } else if (apiKey) {
+                        msg = `NVIDIA NIM key saved for this tab. Recommendations use ${model}.`;
+                    } else {
+                        msg = 'Saved. NVIDIA NIM still needs a key: set NVIDIA_API_KEY or paste one.';
+                    }
+                } else {
+                    msg = apiKey
+                        ? `${provider} key saved for this tab.`
+                        : 'Settings saved. The VEIL backend analysis will be used.';
+                }
+
+                const toastEl = document.getElementById('recToast');
+                if (toastEl) {
+                    toastEl.textContent = msg;
+                    toastEl.hidden = false;
+                    setTimeout(() => { toastEl.hidden = true; }, 4000);
+                }
+
+                // Refresh analysis
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                if (analyzeBtn) analyzeBtn.click();
+            });
+        }
+
+        // Sign out button handler
+        document.getElementById('logoutBtn').addEventListener('click', function () {
+            sessionStorage.setItem('veil_logged_out', '1');
+            window.VEILAuth.logout();
+        });
+
+        // Mobile sidebar toggle handler
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+        }
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (sidebar) sidebar.classList.remove('open');
+                document.querySelectorAll('.modal').forEach((m) => { m.hidden = true; });
+            }
+        });
+    </script>
 </body>
 </html>
