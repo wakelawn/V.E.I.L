@@ -1,4 +1,4 @@
-// VEIL — Execution Plan & Details Module Manages Tree View rendering, interactive node selection, Plan Details breakdown, and JSON export.
+// Execution plan & details: tree view, node selection, details, JSON export.
 
 window.VEILPlanViewer = (() => {
   const $ = (s, r = document) => r.querySelector(s);

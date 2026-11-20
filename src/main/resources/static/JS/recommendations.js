@@ -1,4 +1,4 @@
-// VEIL — AI Recommendations Module Renders deep query performance diagnostics, automated index recommendations, and bottleneck insights on the dedicated AI Recommendations page.
+// AI recommendations module: renders diagnostics, indexes, bottlenecks.
 
 window.VEILRecommendations = (() => {
   const $ = (s, r = document) => r.querySelector(s);

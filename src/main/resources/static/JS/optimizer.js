@@ -1,4 +1,4 @@
-// VEIL — AI Query Optimizer Module Renders the AI-optimized SQL query in the lower half of the Query Editor column. Provides real-time query rewrite suggestions, speedup estimates, rationale breakdown, and one-click "Apply to Editor" functionality.
+// AI query optimizer: renders optimized SQL in editor lower half.
 
 window.VEILOptimizer = (() => {
   const $ = (s, r = document) => r.querySelector(s);

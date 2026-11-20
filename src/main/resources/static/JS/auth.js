@@ -1,4 +1,4 @@
-// ============================================================ VEIL — Simulated Authentication (frontend demo only) ============================================================ NOTE: This is a client-side simulation for UI/prototype purposes. - No real backend, no password hashing, no secure sessions. - A single demo credential is accepted: demo@veil.app / veil123 - Session is stored in sessionStorage (cleared when tab closes). ============================================================
+// Simulated authentication (frontend demo only).
 
 (function () {
   const STORAGE_KEY = 'veil_session';

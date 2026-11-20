@@ -1,4 +1,4 @@
-// VEIL — Interactive AI Chat Module Manages conversation history, real-time message streaming, markdown formatting for SQL, and pre-set optimization prompts.
+// Interactive AI chat module: history, streaming, markdown.
 
 window.VEILChat = (() => {
   const $ = (s, r = document) => r.querySelector(s);

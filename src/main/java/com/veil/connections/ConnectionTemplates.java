@@ -3,7 +3,7 @@ package com.veil.connections;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-// Hands out the JdbcTemplate that database code should use right now: the default Spring datasource, or the activated saved connection. Injecting this instead of a bare JdbcTemplate is what makes "switch connection" work without changing any SQL.
+// JdbcTemplate for default datasource or active saved connection.
 @Component
 public class ConnectionTemplates {
 

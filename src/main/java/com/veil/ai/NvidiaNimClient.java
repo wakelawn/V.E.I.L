@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// Talks to NVIDIA NIM through its OpenAI-compatible chat completions API. <p>The API key never leaves the backend unless the caller explicitly sends one for a single request. Requests and responses are not logged, so keys and schema details stay out of the application log.</p>
+// Talks to NVIDIA NIM OpenAI-compatible API. Key never leaves backend.
 @Component
 public class NvidiaNimClient {
 
@@ -90,7 +90,7 @@ public class NvidiaNimClient {
         return properties.baseUrl();
     }
 
-// Structured recommendations for the AI Recommendations page.
+// Structured recommendations for AI page.
     public AiRecommendation recommend(AiRecommendRequest request) {
         String sql = request.sql() == null ? "" : request.sql().trim();
         if (sql.isBlank()) {
@@ -117,7 +117,7 @@ public class NvidiaNimClient {
         return parseRecommendation(content, model);
     }
 
-// Conversational copilot answer, same NIM model and context.
+// Conversational copilot answer using same context.
     public String chat(AiChatRequest request) {
         String message = request.message() == null ? "" : request.message().trim();
         if (message.isBlank()) {
@@ -250,7 +250,7 @@ public class NvidiaNimClient {
         JsonNode message = choices.get(0).path("message");
         String content = message.path("content").asText("");
         if (content.isBlank()) {
-// Some reasoning models put the answer in reasoning_content.
+// Reasoning models may put answer in reasoning_content.
             content = message.path("reasoning_content").asText("");
         }
         if (content.isBlank()) {
@@ -263,7 +263,7 @@ public class NvidiaNimClient {
         JsonNode root = readJsonObject(content);
 
         if (root == null) {
-// The model ignored the JSON instruction. Keep the prose visible instead of failing the whole analysis.
+// Model ignored JSON; use prose as fallback.
             String prose = content.trim();
             return new AiRecommendation(
                     "nvidia_nim",

@@ -1,4 +1,4 @@
-// VEIL — SQL Editor Module Manages syntax highlighting, synchronized scrolling, line numbers, formatting, and keyboard shortcuts.
+// SQL editor: syntax highlighting, scrolling, line numbers, formatting, shortcuts.
 
 window.VEILEditor = (() => {
   const $ = (s, r = document) => r.querySelector(s);

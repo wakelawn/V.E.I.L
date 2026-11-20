@@ -1,4 +1,4 @@
-// VEIL — AI Recommendation & Chat Engine Routes NVIDIA NIM requests through the VEIL backend (the API key stays server-side) and keeps Gemini/OpenAI as optional direct fallbacks.
+// AI recommendation & chat engine; routes NIM through backend.
 
 window.VEILAIEngine = (() => {
   const STORAGE_KEY = 'veil_ai_config';

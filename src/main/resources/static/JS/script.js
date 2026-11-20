@@ -1,4 +1,4 @@
-// VEIL — Application Coordinator Connects API client, Editor, Plan Viewer, Schema Explorer, AI Recommendations, and Chat Assistant.
+// Application coordinator: connects API client, editor, AI, chat.
 
 (() => {
   const $ = (s, r = document) => r.querySelector(s);

@@ -10,7 +10,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-// Lists the databases available on a PostgreSQL server, for the "Find Databases" button in the Add Connection modal. It connects to a maintenance database (postgres, then template1) because you cannot query pg_database while connected to a database that does not exist. The password is used for this request only.
+// Lists databases on a PostgreSQL server for Add Connection modal.
 @Component
 public class DatabaseDiscovery {
 

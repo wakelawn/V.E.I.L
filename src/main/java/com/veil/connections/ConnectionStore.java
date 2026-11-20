@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-// Stores saved connection settings on disk so they survive a restart. Only the safe fields are written: id, name, host, port, databaseName and username. The password is deliberately never serialized - the UI asks for it every time a connection is activated.
+// Persists saved connections; password never written to disk.
 @Component
 public class ConnectionStore {
 
@@ -63,7 +63,7 @@ public class ConnectionStore {
 			return connections;
 
 		} catch (IOException | RuntimeException e) {
-// a corrupt or unreadable file must never stop the application
+// Corrupt file must not stop the app.
 			return new ArrayList<>();
 		}
 	}
@@ -101,7 +101,7 @@ public class ConnectionStore {
 			restrictPermissions();
 
 		} catch (IOException e) {
-// persistence is best-effort: an unwritable file must not break the connection API
+// Persistence is best-effort.
 		}
 	}
 
@@ -112,7 +112,7 @@ public class ConnectionStore {
 					PosixFilePermission.OWNER_READ,
 					PosixFilePermission.OWNER_WRITE));
 		} catch (UnsupportedOperationException | IOException ignored) {
-// non-POSIX filesystems keep their default permissions
+// Non-POSIX filesystems keep defaults.
 		}
 	}
 

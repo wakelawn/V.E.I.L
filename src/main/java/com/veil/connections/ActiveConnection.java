@@ -4,7 +4,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Component;
 
-// The connection VEIL is currently analysing against. The default Spring datasource (application.properties) is used until a saved connection is activated. Once activated, every schema/EXPLAIN/index lookup goes through a JdbcTemplate built from this connection instead. The password lives only in this in-memory object: it is never written to disk and is lost when the application restarts.
+// The connection VEIL is analysing against; password lives in memory only.
 @Component
 public class ActiveConnection {
 
@@ -32,12 +32,12 @@ public class ActiveConnection {
 		this.jdbcTemplate = null;
 	}
 
-// The active connection, or null when the default datasource is in use.
+// Active connection or null for default.
 	public SavedConnection get() {
 		return connection;
 	}
 
-// A template for the active connection, or null for the default one.
+// JdbcTemplate for active connection or null.
 	public JdbcTemplate jdbcTemplate() {
 		return jdbcTemplate;
 	}

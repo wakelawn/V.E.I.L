@@ -2,7 +2,7 @@ package com.veil.ai;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-// Configuration for NVIDIA NIM recommendations. NIM exposes an OpenAI-compatible chat completions API, so the same request shape works against the hosted endpoint (https://integrate.api.nvidia.com/v1) and a self-hosted NIM container.
+// NVIDIA NIM configuration bound from env vars.
 @ConfigurationProperties(prefix = "veil.ai.nvidia")
 public record NvidiaNimProperties(
         String baseUrl,

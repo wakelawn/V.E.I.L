@@ -2,7 +2,7 @@ package com.veil.ai;
 
 import java.util.List;
 
-// Body of POST /api/ai/chat. Context mirrors the recommendation request so the copilot answers using the same SQL, plan, schema, key, and model.
+// Body of POST /api/ai/chat for the copilot.
 public record AiChatRequest(
         String message,
         List<ChatMessage> history,

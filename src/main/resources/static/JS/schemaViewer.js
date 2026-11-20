@@ -1,4 +1,4 @@
-// VEIL — Schema Explorer Module Comprehensive Database Schema Explorer: - Master-Detail navigation of tables, views, and indexes - Real-time column introspection, data types, constraints, and defaults - Index definitions, access methods, and uniqueness - Interactive live sample data preview - Automatic SQL DDL generation & syntax highlighting - Dynamic connected database synchronization
+// Schema explorer: table/index/column navigation and DDL generation.
 
 window.VEILSchemaViewer = (() => {
   const $ = (s, r = document) => r.querySelector(s);

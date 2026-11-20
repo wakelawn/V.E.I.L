@@ -1,4 +1,4 @@
-// VEIL — Frontend API Client Module Connects directly to the Java backend (Spring Boot). The UI modules were written against a flat "viewer" shape, while the Java API returns its own DTOs (AnalyzeResponse, PlanSummary, ...). This module is the single translation layer between the two, so the UI files never have to know about backend field names.
+// Frontend API client translating between UI and Java backend DTOs.
 
 window.VEILApi = (() => {
 // Configurable Java Backend URL (defaults to same-origin, or 8080 if running on 5500)
