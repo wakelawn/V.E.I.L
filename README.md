@@ -41,6 +41,7 @@ It takes a SQL query, breaks it into tokens, parses its structure into an AST, a
 6. [EXPLAIN](#27-what-is-explain)
 7. [Complete VEIL Flow](#28-complete-veil-flow)
 8. [Current Implementation Scope](#current-implementation-scope)
+9. [Deploying VEIL](#deploying-veil)
 
 ---
 
@@ -964,3 +965,78 @@ Endpoints:
 | `POST` | `/api/ai/chat` | Copilot reply using the same context |
 
 Full guide: [`nvidia-nim.md`](nvidia-nim.md).
+
+---
+
+# Deploying VEIL
+
+VEIL is a single Spring Boot JAR that serves the UI and the API, so one
+service is enough. The repo contains a `Dockerfile` and a `render.yaml`
+blueprint.
+
+## Render (Docker)
+
+1. Push the branch to GitHub and connect the repo in Render.
+2. Render reads `render.yaml`, builds the Dockerfile, and creates a
+   PostgreSQL instance named `veil-db`.
+3. Set the secrets marked `sync: false` in the dashboard:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `VEIL_AUTH_EMAIL` | yes | Login email |
+| `VEIL_AUTH_PASSWORD` | yes | Login password (or use `VEIL_AUTH_PASSWORD_HASH`) |
+| `VEIL_AUTH_PASSWORD_HASH` | optional | Bcrypt hash; takes precedence over the plain password |
+| `NVIDIA_API_KEY` | for AI | NIM key from build.nvidia.com |
+| `JWT_SECRET` | auto | Render generates one; 32+ characters |
+
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` are
+wired from the Render database automatically. `PORT` is injected by
+Render and the app binds to it.
+
+The health check is `GET /api/health` (public).
+
+## Login
+
+Authentication is handled by the backend: `POST /api/auth/login` returns
+a signed HS256 JWT, and every protected request sends
+`Authorization: Bearer <token>`. The dashboard redirects to
+`login.html` when the token is missing or expired. Tokens live in
+`sessionStorage`, or `localStorage` when "Remember me" is checked.
+
+With neither `VEIL_AUTH_PASSWORD` nor `VEIL_AUTH_PASSWORD_HASH` set, the
+backend generates a random password and prints it once in the startup
+log. There is no built-in demo account.
+
+## Security defaults
+
+- Static pages and assets are public; every other endpoint requires a
+  valid token.
+- JWT signatures, issuer, subject, and expiry are all verified.
+- Per-IP rate limits: 10 login attempts, 30 connection changes, 30 AI
+  calls, and 120 other API calls per minute.
+- API errors never include database hostnames, credentials, or stack
+  traces.
+- HSTS, `X-Frame-Options: DENY`, and a restrictive Content-Security-Policy
+  are sent on every response.
+
+## Notes for the free tier
+
+- Render's free PostgreSQL expires after 30 days; upgrade or move the
+  database before then.
+- Free web services sleep after inactivity, so the first request after a
+  pause can take a few seconds.
+- `/tmp` is ephemeral. Saved connections are re-created after a deploy
+  unless `VEIL_CONNECTIONS_FILE` points at a persistent disk (paid plans).
+
+## Running the container locally
+
+```bash
+docker build -t veil .
+docker run --rm -p 8080:8080 \
+  -e DB_PASSWORD=your-db-password \
+  -e JWT_SECRET="$(openssl rand -base64 48)" \
+  -e VEIL_AUTH_EMAIL=you@example.com \
+  -e VEIL_AUTH_PASSWORD=your-login-password \
+  -e NVIDIA_API_KEY=nvapi-... \
+  veil
+```

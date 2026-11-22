@@ -1,6 +1,6 @@
 package com.veil.config;
 
-import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.jwt.JWTClaimsSet;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,20 +9,24 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.text.ParseException;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-@Component
+// Reads a Bearer token, verifies it, and puts the user in the security
+// context. Instances are created by SecurityConfig, never registered as a
+// servlet filter, so the chain runs exactly once.
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+
+    private final JwtService jwtService;
+
+    public JwtAuthenticationFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -32,32 +36,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader(AUTH_HEADER);
 
-        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
+            String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+            JWTClaimsSet claims = jwtService.verify(token);
 
-        String token = authHeader.substring(BEARER_PREFIX.length()).trim();
-
-        try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-
-            // In production, verify signature against JWKS or secret
-            // For now, parse claims without verification (dev mode)
-            Map<String, Object> claims = signedJWT.getJWTClaimsSet().getClaims();
-
-            String subject = (String) claims.get("sub");
-            if (subject != null) {
-                List<SimpleGrantedAuthority> authorities = Collections.singletonList(
-                        new SimpleGrantedAuthority("ROLE_USER")
-                );
-
+            if (claims != null) {
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(subject, null, authorities);
+                        new UsernamePasswordAuthenticationToken(
+                                claims.getSubject(),
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (ParseException e) {
-            // Invalid token - continue without authentication
         }
 
         filterChain.doFilter(request, response);

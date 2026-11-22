@@ -18,6 +18,21 @@ window.VEILApi = (() => {
     }
   };
 
+// Every API call carries the JWT; a 401 drops the session and re-logs in.
+  const authHeaders = (extra = {}) => {
+    const headers = { ...extra };
+    const token = window.VEILAuth ? window.VEILAuth.getToken() : '';
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  };
+
+  const handleUnauthorized = (res) => {
+    if (res.status !== 401 || !window.VEILAuth) return;
+    if (/login\.html$/.test(window.location.pathname)) return;
+    window.VEILAuth.clearSession();
+    window.location.href = 'login.html';
+  };
+
   const firstKeyword = (sql) => {
     const match = String(sql || '').trim().match(/^([a-zA-Z]+)/);
     return match ? match[1].toUpperCase() : 'SELECT';
@@ -138,8 +153,11 @@ window.VEILApi = (() => {
 
     async get(path) {
       const url = `${baseUrl}${path}`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(await readError(res));
+      const res = await fetch(url, { headers: authHeaders({ Accept: 'application/json' }) });
+      if (!res.ok) {
+        handleUnauthorized(res);
+        throw new Error(await readError(res));
+      }
       return res.json();
     },
 
@@ -147,17 +165,23 @@ window.VEILApi = (() => {
       const url = `${baseUrl}${path}`;
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await readError(res));
+      if (!res.ok) {
+        handleUnauthorized(res);
+        throw new Error(await readError(res));
+      }
       return res.json();
     },
 
     async del(path) {
       const url = `${baseUrl}${path}`;
-      const res = await fetch(url, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await readError(res));
+      const res = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+      if (!res.ok) {
+        handleUnauthorized(res);
+        throw new Error(await readError(res));
+      }
       return res.json();
     },
 

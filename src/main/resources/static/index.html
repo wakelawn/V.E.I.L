@@ -598,24 +598,10 @@ LIMIT 5;</textarea>
     <!-- Pure Frontend JavaScript Architecture (Zero Conflicts with Java Backend) -->
     <script src="JS/auth.js"></script>
     <script>
-        // Auth guard: If no session, create a demo session automatically if opening directly in browser,
-        // or redirect to login.html if explicit logout
-        (function () {
-            if (window.VEILAuth) {
-                const session = window.VEILAuth.getSession();
-                if (!session) {
-                    const wasExplicitLogout = sessionStorage.getItem('veil_logged_out');
-                    if (wasExplicitLogout) {
-                        window.location.href = 'login.html';
-                    } else {
-                        sessionStorage.setItem('veil_session', JSON.stringify({
-                            user: { email: 'demo@veil.app', name: 'Demo User', role: 'Analyst' },
-                            loggedInAt: Date.now()
-                        }));
-                    }
-                }
-            }
-        })();
+        // Auth guard: the dashboard needs a valid backend token.
+        if (window.VEILAuth) {
+            window.VEILAuth.requireAuth();
+        }
     </script>
     <script src="JS/api.js"></script>
     <script src="JS/aiClient.js"></script>
