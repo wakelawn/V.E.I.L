@@ -9,50 +9,71 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 // Lists databases on a PostgreSQL server for Add Connection modal.
 @Component
 public class DatabaseDiscovery {
 
-	public List<String> listDatabases(String host, int port,
-			String username, String password) {
+    private static final Pattern HOST_PATTERN = Pattern.compile("^[a-zA-Z0-9.-]+$");
 
-		SQLException lastFailure = null;
+    public List<String> listDatabases(String host, int port,
+            String username, String password) {
 
-// postgres is the usual maintenance DB; template1 is the fallback
-		for (String maintenance : List.of("postgres", "template1")) {
+        validateHost(host);
+        validatePort(port);
 
-			String url = "jdbc:postgresql://" + host + ":" + port
-					+ "/" + maintenance + "?connectTimeout=5";
+        SQLException lastFailure = null;
 
-			try (Connection connection = DriverManager.getConnection(
-					url, username, password);
-					Statement statement = connection.createStatement();
-					ResultSet result = statement.executeQuery("""
-							SELECT datname
-							FROM pg_database
-							WHERE datistemplate = false
-							  AND datallowconn = true
-							ORDER BY datname
-							""")) {
+        // postgres is the usual maintenance DB; template1 is the fallback
+        for (String maintenance : List.of("postgres", "template1")) {
 
-				List<String> databases = new ArrayList<>();
+            String url = "jdbc:postgresql://" + host + ":" + port
+                    + "/" + maintenance + "?connectTimeout=5";
 
-				while (result.next()) {
-					databases.add(result.getString(1));
-				}
+            try (Connection connection = DriverManager.getConnection(
+                    url, username, password);
+                    Statement statement = connection.createStatement();
+                    ResultSet result = statement.executeQuery("""
+                            SELECT datname
+                            FROM pg_database
+                            WHERE datistemplate = false
+                              AND datallowconn = true
+                            ORDER BY datname
+                            """)) {
 
-				return databases;
+                List<String> databases = new ArrayList<>();
 
-			} catch (SQLException e) {
-				lastFailure = e;
-			}
-		}
+                while (result.next()) {
+                    databases.add(result.getString(1));
+                }
 
-		throw new IllegalArgumentException(
-				"Could not list databases on " + host + ":" + port
-						+ " as " + username
-						+ ". Check the host, port and credentials.",
-				lastFailure);
-	}
+                return databases;
+
+            } catch (SQLException e) {
+                lastFailure = e;
+            }
+        }
+
+        throw new IllegalArgumentException(
+                "Could not list databases on " + host + ":" + port
+                        + " as " + username
+                        + ". Check the host, port and credentials.",
+                lastFailure);
+    }
+
+    private void validateHost(String host) {
+        if (host == null || host.isBlank() || !HOST_PATTERN.matcher(host).matches()) {
+            throw new IllegalArgumentException("Invalid host: must contain only letters, digits, dots, and hyphens");
+        }
+        if (host.length() > 255) {
+            throw new IllegalArgumentException("Host too long (max 255 chars)");
+        }
+    }
+
+    private void validatePort(int port) {
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException("Port must be between 1 and 65535");
+        }
+    }
 }

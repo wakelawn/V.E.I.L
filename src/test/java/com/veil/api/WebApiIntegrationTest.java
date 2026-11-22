@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 		"veil.connections.file=target/test-connections.json",
 		"veil.ai.nvidia.api-key="
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class WebApiIntegrationTest {
 
 	@Autowired

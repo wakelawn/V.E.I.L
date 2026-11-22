@@ -36,15 +36,15 @@ public class ApiExceptionHandler {
 	// database rejected the SQL itself (e.g. unknown table/column)
 	@ExceptionHandler(BadSqlGrammarException.class)
 	public ResponseEntity<Map<String, String>> onBadSql(BadSqlGrammarException e) {
-		String message = e.getMostSpecificCause().getMessage();
-		return ResponseEntity.badRequest().body(Map.of("error", "Database rejected the query: " + message));
+		// Sanitize: don't leak database schema details
+		return ResponseEntity.badRequest().body(Map.of("error", "Database rejected the query. Check table/column names."));
 	}
 
 	// could not reach PostgreSQL at all (down / wrong credentials)
 	@ExceptionHandler(CannotGetJdbcConnectionException.class)
 	public ResponseEntity<Map<String, String>> onConnection(CannotGetJdbcConnectionException e) {
-		String message = e.getMostSpecificCause().getMessage();
-		return ResponseEntity.status(503).body(Map.of("error", "Database connection failed: " + message));
+		// Sanitize: don't leak connection details
+		return ResponseEntity.status(503).body(Map.of("error", "Database connection failed. Check server status."));
 	}
 
 	// NVIDIA NIM has no API key configured
