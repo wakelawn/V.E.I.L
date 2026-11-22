@@ -19,51 +19,44 @@ import java.util.Map;
 @Component
 public class NvidiaNimClient {
 
-    private static final int MAX_FINDINGS = 8;
-    private static final int MAX_PLAN_CHARS = 50_000;
-    private static final int MAX_SCHEMA_CHARS = 50_000;
+    private static final int MAX_FINDINGS = 5;
+    private static final int MAX_PLAN_CHARS = 15_000;
+    private static final int MAX_SCHEMA_CHARS = 15_000;
 
     private static final String RECOMMEND_SYSTEM_PROMPT = """
-            You are VEIL AI, an expert PostgreSQL database administrator and
-            query performance engineer.
-
-            Analyse the supplied SQL query, PostgreSQL EXPLAIN plan, and
-            schema. Return ONLY one valid JSON object, with no markdown and
-            no code fences, using exactly this shape:
+            You are VEIL AI, a PostgreSQL performance engineer.
+            Analyse the SQL, EXPLAIN plan, and schema. Return ONLY one valid JSON object,
+            no markdown, no code fences, no thinking process, no chain-of-thought:
 
             {
-              "summary": "Short executive summary of the plan and the main bottleneck.",
+              "summary": "One-sentence summary of the main bottleneck.",
               "bottlenecks": ["Bottleneck 1", "Bottleneck 2"],
               "findings": [
                 {
-                  "title": "Short recommendation title",
-                  "message": "Why the bottleneck happens and how to fix it.",
+                  "title": "Short title",
+                  "message": "One or two sentences on the fix.",
                   "severity": "high",
-                  "suggestionSql": "Runnable PostgreSQL DDL, or an empty string."
+                  "suggestionSql": "Runnable PostgreSQL DDL or empty string."
                 }
               ],
-              "estimatedImprovement": "Qualitative or quantitative estimate, or an empty string."
+              "estimatedImprovement": "Short qualitative estimate, e.g. '~2-5x faster'."
             }
 
             Rules:
-            - Base every claim on the supplied plan and schema.
-            - Never invent tables, columns, indexes, row counts, or costs.
-            - If the plan does not prove a number, describe the effect qualitatively.
-            - suggestionSql must be valid PostgreSQL or an empty string.
+            - Base every claim on the supplied plan and schema only.
+            - Never invent tables, columns, indexes, or costs.
+            - Keep summary under 30 words. Keep each message under 40 words.
             - Use severity "high", "medium", or "low".
-            - Return at most 6 findings, ordered by impact.
+            - Return at most 4 findings, ordered by impact.
             """;
 
     private static final String CHAT_SYSTEM_PROMPT = """
-            You are VEIL AI, an elite PostgreSQL query optimisation copilot.
-            You have the user's active SQL, its EXPLAIN plan, and the database
-            schema in the conversation context.
-
-            Answer with actionable, technically precise advice. Use Markdown,
-            short bullet points, and fenced SQL code blocks where useful.
-            Never invent tables, columns, indexes, or costs that are not in the
-            supplied context. If the context is insufficient, say what is
-            missing instead of guessing.
+            You are VEIL AI, a PostgreSQL query optimisation copilot.
+            You have the user's SQL, EXPLAIN plan, and schema in context.
+            Answer with concise, actionable advice. Short bullet points. Fenced SQL
+            code blocks where useful. Never invent tables, columns, or costs not in
+            the supplied context. If context is insufficient, say what is missing.
+            No thinking process. No chain-of-thought. Be direct.
             """;
 
     private final NvidiaNimProperties properties;
@@ -256,7 +249,12 @@ public class NvidiaNimClient {
         if (content.isBlank()) {
             throw new AiUpstreamException("NVIDIA NIM returned an empty message.");
         }
-        return content;
+        return stripThinking(content);
+    }
+
+    // Some NVIDIA models emit a <thinking> block before the answer. Remove it.
+    private static String stripThinking(String text) {
+        return text.replaceAll("(?is)<thinking>.*?</thinking>", "").trim();
     }
 
     private AiRecommendation parseRecommendation(String content, String model) {

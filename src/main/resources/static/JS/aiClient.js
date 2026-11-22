@@ -57,6 +57,8 @@ window.VEILAIEngine = (() => {
     return value === 'nvidia' || value === 'nim' || value === 'nvidia-nim';
   };
 
+  const stripThinking = (text) => String(text || '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+
 // Backend -> the exact shape recommendations.js renders
   function normalizeNvidiaResult(result, model) {
     const severityOf = (value) => {
@@ -68,35 +70,36 @@ window.VEILAIEngine = (() => {
       source: result?.source || 'nvidia_nim',
       provider: result?.provider || 'nvidia-nim',
       model: result?.model || model,
-      summary: result?.summary || 'NVIDIA NIM analysis complete.',
-      bottlenecks: Array.isArray(result?.bottlenecks) ? result.bottlenecks : [],
+      summary: stripThinking(result?.summary || 'NVIDIA NIM analysis complete.'),
+      bottlenecks: Array.isArray(result?.bottlenecks) ? result.bottlenecks.map(stripThinking) : [],
       findings: (result?.findings || []).map((finding) => ({
-        title: finding.title || 'Recommendation',
-        message: finding.message || '',
+        title: stripThinking(finding.title || 'Recommendation'),
+        message: stripThinking(finding.message || ''),
         severity: severityOf(finding.severity),
         suggestionSql: finding.suggestionSql || finding.sql || '',
       })),
-      estimatedImprovement: result?.estimatedImprovement || '',
+      estimatedImprovement: stripThinking(result?.estimatedImprovement || ''),
       notice: result?.notice || '',
     };
   }
 
   function buildPrompt(sql, plan, schema) {
     return {
-      system: `You are VEIL AI, an expert PostgreSQL Database Administrator and Performance Engineer.
-Analyze the SQL query, execution plan, and schema. Return ONLY a valid JSON object matching this schema:
+      system: `You are VEIL AI, a PostgreSQL performance engineer.
+Analyze the SQL, EXPLAIN plan, and schema. Return ONLY valid JSON, no markdown,
+no code fences, no thinking process, no chain-of-thought:
 {
-  "summary": "Executive summary of the query execution plan and main bottleneck.",
-  "bottlenecks": ["Bottleneck description 1", "Bottleneck description 2"],
+  "summary": "One-sentence summary of the main bottleneck.",
+  "bottlenecks": ["Bottleneck 1", "Bottleneck 2"],
   "findings": [
     {
-      "title": "Title of the optimization",
-      "message": "Clear explanation of why this bottleneck occurs and how to fix it.",
-      "severity": "high" | "medium" | "low",
-      "suggestionSql": "Ready-to-execute SQL statement (e.g. CREATE INDEX ...) or empty string if N/A"
+      "title": "Short title",
+      "message": "One or two sentences on the fix.",
+      "severity": "high",
+      "suggestionSql": "Runnable PostgreSQL DDL or empty string."
     }
   ],
-  "estimatedImprovement": "Expected performance improvement (e.g. ~70-85% latency reduction)"
+  "estimatedImprovement": "Short qualitative estimate, e.g. '~2-5x faster'."
 }`,
       user: `SQL QUERY:\n${sql}\n\nEXECUTION PLAN:\n${JSON.stringify(plan, null, 2)}\n\nSCHEMA & INDEXES:\n${JSON.stringify(schema, null, 2)}`
     };
@@ -304,7 +307,7 @@ Analyze the SQL query, execution plan, and schema. Return ONLY a valid JSON obje
       summary: `Analyzed query with Limit (${plan?.rows || 5} rows). A compound index on (project_id, status) would replace the Seq Scan with an Index Scan, cutting cost from 14.86 to ~3.20 units.`,
       bottlenecks: findings.filter((f) => f.severity !== 'low').map((f) => f.title),
       findings,
-      estimatedImprovement: findings.some((f) => f.severity === 'high') ? '~75-85% latency reduction' : '~15-30% optimization'
+      estimatedImprovement: findings.some((f) => f.severity === 'high') ? '~2-5x faster' : '~15-30% faster'
     };
   }
 
@@ -370,15 +373,15 @@ Analyze the SQL query, execution plan, and schema. Return ONLY a valid JSON obje
             source: 'live_ai_model',
             provider,
             model,
-            summary: result.summary || 'AI Model optimization analysis complete.',
-            bottlenecks: result.bottlenecks || [],
+            summary: stripThinking(result.summary || 'AI Model optimization analysis complete.'),
+            bottlenecks: (result.bottlenecks || []).map(stripThinking),
             findings: (result.findings || []).map((f) => ({
-              title: f.title || 'Recommendation',
-              message: f.message || '',
+              title: stripThinking(f.title || 'Recommendation'),
+              message: stripThinking(f.message || ''),
               severity: ['high', 'medium', 'low'].includes(f.severity) ? f.severity : 'medium',
               suggestionSql: f.suggestionSql || ''
             })),
-            estimatedImprovement: result.estimatedImprovement || '~70-85% latency reduction'
+            estimatedImprovement: stripThinking(result.estimatedImprovement || '~2-5x faster')
           };
         } catch (err) {
           console.warn('AI API call error, falling back to rule-based engine:', err);
@@ -411,13 +414,17 @@ Analyze the SQL query, execution plan, and schema. Return ONLY a valid JSON obje
           });
         } catch (err) {
           console.warn('NVIDIA NIM chat failed, using local assistant:', err);
-          return getSimulatedChatResponse(userMessage, context)
+          return stripThinking(getSimulatedChatResponse(userMessage, context))
             + `\n\n*(NVIDIA NIM request failed: ${err.message}. Showing the local assistant response.)*`;
         }
       }
 
-      const systemPrompt = `You are VEIL AI, an elite PostgreSQL Query Optimization Copilot.
-You have full access to the user's active SQL query, execution plan, and database schema:
+      const systemPrompt = `You are VEIL AI, a PostgreSQL query optimisation copilot.
+You have the user's SQL, EXPLAIN plan, and schema in context.
+Answer with concise, actionable advice. Short bullet points. Fenced SQL code blocks where useful.
+Never invent tables, columns, or costs not in the supplied context. If context is insufficient, say what is missing.
+No thinking process. No chain-of-thought. Be direct.
+
 ACTIVE SQL:
 ${context.sql || 'No query provided'}
 
@@ -425,20 +432,18 @@ EXECUTION PLAN:
 ${JSON.stringify(context.plan || {}, null, 2)}
 
 SCHEMA:
-${JSON.stringify(context.schema || {}, null, 2)}
-
-Respond with actionable, expert advice. Use Markdown formatting, bullet points, and code blocks for SQL statements. Be concise, direct, and technically precise.`;
+${JSON.stringify(context.schema || {}, null, 2)}`;
 
       if (apiKey) {
         try {
           if (provider === 'gemini' || apiKey.startsWith('AIzaSy')) {
-            return await callGeminiChat(apiKey, model, systemPrompt, history, userMessage);
+            return stripThinking(await callGeminiChat(apiKey, model, systemPrompt, history, userMessage));
           } else {
-            return await callOpenAIChat(apiKey, model, systemPrompt, history, userMessage);
+            return stripThinking(await callOpenAIChat(apiKey, model, systemPrompt, history, userMessage));
           }
         } catch (err) {
           console.warn('AI Chat API failed, using intelligent assistant engine:', err);
-          return getSimulatedChatResponse(userMessage, context) + `\n\n*(Note: Live model request failed: ${err.message}. Showing expert rule-based response)*`;
+          return stripThinking(getSimulatedChatResponse(userMessage, context)) + `\n\n*(Note: Live model request failed: ${err.message}. Showing expert rule-based response)*`;
         }
       }
 
