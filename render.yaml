@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: veil
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: veil-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: veil-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: veil-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: veil-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: veil-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: VEIL_AUTH_EMAIL
+        sync: false
+      - key: VEIL_AUTH_PASSWORD
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_NIM_MODEL
+        value: nvidia/nemotron-3.5-lightning-30b-a3b
+      - key: VEIL_CONNECTIONS_FILE
+        value: /tmp/veil/connections.json
+
+databases:
+  - name: veil-db
+    plan: free
+    databaseName: veil
+    user: veil

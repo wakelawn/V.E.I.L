@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // without it they are skipped (not failed) - plain `sh mvnw test`
 // still runs everything else green
 @SpringBootTest(properties = "veil.connections.file=target/test-connections.json")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @EnabledIfEnvironmentVariable(named = "DB_PASSWORD", matches = ".+")
 class DatabaseBackedIntegrationTest {
 

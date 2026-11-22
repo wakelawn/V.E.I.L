@@ -216,16 +216,24 @@ SECURITY
   fixes 4 Tomcat CVEs: CVE-2026-65905, CVE-2026-65637,
   CVE-2026-65182, CVE-2026-68525 (Tomcat 11.0.24 → 11.0.27)
   also pulls Spring Framework 7.0.10 and Jackson 3.1.7
+- backend authentication: HS256 JWT issued by `/api/auth/login`;
+  signature, issuer, subject and expiry are verified on every
+  protected request (JwtService). Tokens live in sessionStorage, or
+  localStorage with "Remember me".
+- static pages/assets are public; every other endpoint needs a token
+- per-IP rate limits: 10 auth, 30 connections, 30 AI, 120 default
+  requests per minute
+- CSP, HSTS, X-Frame-Options DENY, nosniff on every response
+- DB/connection errors are sanitized before reaching the client
 
 NOT STARTED (does not exist yet)
 - veil-auth React app
 - semantic analyzer, cost module, index recommender
-- backend authentication (JWT was previously added, then removed)
 - subqueries, GROUP BY/HAVING, window functions in parser
 
 OPEN THREADS
-- CORS allow-list uses http://127.0.0.1:5500; dashboard is normally
-  served same-origin from :8080 so CORS is only relevant for Live Server
+- CORS allow-list defaults to localhost:5500; the dashboard is normally
+  served same-origin from :8080. Override with VEIL_CORS_ORIGINS.
 - JacksonConfig ObjectMapper bean exists; harmless, decide later
 - Two Jackson stacks on classpath: Boot 4 web layer uses Jackson 3
   (tools.jackson); ExplainService/JacksonConfig use Jackson 2
@@ -233,7 +241,9 @@ OPEN THREADS
 - DB credentials are env-var based (DB_HOST, DB_PORT, DB_NAME,
   DB_USERNAME, DB_PASSWORD with local defaults); local DB is named
   v.e.i.l and DB_PASSWORD has no default (must be provided)
-- login is still client-side demo auth (demo@veil.app / veil123)
+- login uses VEIL_AUTH_EMAIL plus VEIL_AUTH_PASSWORD or
+  VEIL_AUTH_PASSWORD_HASH; no demo account exists
+- Render deployment: Dockerfile + render.yaml (see README)
 ```
 
 ---

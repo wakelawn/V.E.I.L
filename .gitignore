@@ -70,8 +70,8 @@ frontend/dist/
 frontend/.npm/
 frontend/.cache/
 
-# Docker
-Dockerfile*
+# Docker (local overrides only; the real Dockerfile is committed)
+Dockerfile.local
 
 # Local application properties that may contain secrets
 src/main/resources/application-local.properties
