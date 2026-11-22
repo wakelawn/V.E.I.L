@@ -1,13 +1,12 @@
-# Build stage: Maven + JDK 25
+# Build stage: Maven + JDK 25 (Maven is pre-installed in the base image)
 FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /app
 
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline || true
+COPY pom.xml ./
+RUN mvn -B -q dependency:go-offline
 
 COPY src ./src
-RUN ./mvnw -B -q package -DskipTests
+RUN mvn -B -q package -DskipTests
 
 # Runtime stage: JRE only, non-root user
 FROM eclipse-temurin:25-jre
