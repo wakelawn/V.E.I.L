@@ -4,6 +4,5 @@
 .vscode
 target
 *.md
-Dockerfile
 .dockerignore
 render.yaml
