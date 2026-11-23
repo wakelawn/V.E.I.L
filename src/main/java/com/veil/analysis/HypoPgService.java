@@ -1,6 +1,7 @@
 package com.veil.analysis;
 
 import com.veil.core.database.DatabaseAdapter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 // HypoPG is a PostgreSQL extension that allows creating hypothetical indexes
 // and testing their effect on query plans without actually creating them.
 @Component
+@ConditionalOnProperty(name = "veil.features.hypopg", havingValue = "true", matchIfMissing = false)
 public class HypoPgService {
 
     private final JdbcTemplate jdbcTemplate;

@@ -4,7 +4,7 @@ import com.veil.ast.SelectStatement;
 import com.veil.core.database.DatabaseAdapter;
 import com.veil.explain.PlanSummary;
 import com.veil.parser.Parser;
-
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 // REST endpoint for enhanced index recommendations
 @RestController
 @RequestMapping("/api/indexes")
+@ConditionalOnProperty(name = "veil.features.enhanced-index-advisor", havingValue = "true", matchIfMissing = false)
 public class EnhancedIndexController {
 
     private final EnhancedIndexAdvisor advisor;

@@ -3,6 +3,7 @@ package com.veil.analysis;
 import com.veil.ast.*;
 import com.veil.core.database.DatabaseAdapter;
 import com.veil.explain.PlanSummary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 // Enhanced Index Advisor with HypoPG support, partial indexes, expression indexes,
 // and hypothetical index evaluation.
 @Component
+@ConditionalOnProperty(name = "veil.features.enhanced-index-advisor", havingValue = "true", matchIfMissing = false)
 public class EnhancedIndexAdvisor {
 
     private final IndexInspector inspector;
