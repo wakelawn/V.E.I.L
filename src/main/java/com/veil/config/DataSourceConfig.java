@@ -6,7 +6,6 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
@@ -66,12 +65,21 @@ public class DataSourceConfig {
     }
 
     @Bean("targetDataSource")
-    public DataSource targetDataSource(Environment environment) {
+    public DataSource targetDataSource(
+            @Value("${DB_HOST:localhost}") String host,
+            @Value("${DB_PORT:5432}") int port,
+            @Value("${DB_NAME:v.e.i.l}") String name,
+            @Value("${DB_USERNAME:postgres}") String username,
+            @Value("${DB_PASSWORD:}") String password) {
+
         // Same keys the application already uses for the analysed database.
+        // Defaults mirror application.properties so the app starts even when
+        // the target database is not yet configured; connections fail lazily
+        // when first used, not at startup.
         return DataSourceBuilder.create()
-                .url(environment.getProperty("spring.datasource.url"))
-                .username(environment.getProperty("spring.datasource.username"))
-                .password(environment.getProperty("spring.datasource.password"))
+                .url("jdbc:postgresql://" + host + ":" + port + "/" + name)
+                .username(username)
+                .password(password)
                 .build();
     }
 
