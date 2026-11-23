@@ -1,5 +1,6 @@
 package com.veil.benchmark;
 
+import com.veil.security.SqlValidator;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -10,42 +11,54 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/benchmark")
 public class BenchmarkController {
 
-    private final BenchmarkService benchmarkService;
+    // Upper bounds for client-supplied benchmark configuration, so a
+    // malicious or accidental payload cannot exhaust the connection pool
+    // or CPU.
+    private static final int MAX_WARMUP_RUNS = 10;
+    private static final int MAX_MEASUREMENT_RUNS = 50;
+    private static final long MAX_STATEMENT_TIMEOUT_MS = 300_000;
 
-    public BenchmarkController(BenchmarkService benchmarkService) {
+    private final BenchmarkService benchmarkService;
+    private final SqlValidator sqlValidator;
+
+    public BenchmarkController(BenchmarkService benchmarkService,
+                               SqlValidator sqlValidator) {
         this.benchmarkService = benchmarkService;
+        this.sqlValidator = sqlValidator;
     }
 
     @PostMapping
     public Map<String, Object> benchmark(@RequestBody Map<String, Object> request) {
 
-        String originalSql = (String) request.get("originalSql");
-        String optimizedSql = (String) request.get("optimizedSql");
+        if (request == null) {
+            return Map.of("error", "Request body is required");
+        }
 
-        if (originalSql == null || originalSql.isBlank()) {
-            return Map.of("error", "originalSql is required");
-        }
-        if (optimizedSql == null || optimizedSql.isBlank()) {
-            return Map.of("error", "optimizedSql is required");
-        }
+        String originalSql = asString(request.get("originalSql"));
+        String optimizedSql = asString(request.get("optimizedSql"));
+
+        // Both queries must be read-only SELECT/WITH statements.
+        sqlValidator.validateSelectOnly(originalSql);
+        sqlValidator.validateSelectOnly(optimizedSql);
 
         BenchmarkConfig config = BenchmarkConfig.defaults();
 
-        // Parse optional config
+        // Parse optional config with hard upper bounds.
         if (request.containsKey("warmupRuns")) {
-            config.setWarmupRuns(((Number) request.get("warmupRuns")).intValue());
+            config.setWarmupRuns(clamp(request.get("warmupRuns"), 0, MAX_WARMUP_RUNS));
         }
         if (request.containsKey("measurementRuns")) {
-            config.setMeasurementRuns(((Number) request.get("measurementRuns")).intValue());
+            config.setMeasurementRuns(clamp(request.get("measurementRuns"), 1, MAX_MEASUREMENT_RUNS));
         }
         if (request.containsKey("statementTimeoutMs")) {
-            config.setStatementTimeoutMs(((Number) request.get("statementTimeoutMs")).longValue());
+            config.setStatementTimeoutMs(clamp(
+                    request.get("statementTimeoutMs"), 1000L, MAX_STATEMENT_TIMEOUT_MS));
         }
         if (request.containsKey("explainAnalyze")) {
-            config.setExplainAnalyze((Boolean) request.get("explainAnalyze"));
+            config.setExplainAnalyze(asBoolean(request.get("explainAnalyze")));
         }
         if (request.containsKey("readOnly")) {
-            config.setReadOnly((Boolean) request.get("readOnly"));
+            config.setReadOnly(asBoolean(request.get("readOnly")));
         }
 
         try {
@@ -91,7 +104,35 @@ public class BenchmarkController {
 
             return response;
         } catch (Exception e) {
-            return Map.of("error", "Benchmark failed: " + e.getMessage());
+            return Map.of("error", "Benchmark failed");
         }
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static boolean asBoolean(Object value) {
+        return value instanceof Boolean b && b;
+    }
+
+    private static int clamp(Object value, int min, int max) {
+        int parsed;
+        try {
+            parsed = Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return min;
+        }
+        return Math.min(max, Math.max(min, parsed));
+    }
+
+    private static long clamp(Object value, long min, long max) {
+        long parsed;
+        try {
+            parsed = Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return min;
+        }
+        return Math.min(max, Math.max(min, parsed));
     }
 }
