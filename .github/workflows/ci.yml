@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [deploy-render, final]
@@ -10,6 +13,19 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: v.e.i.l
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d v.e.i.l"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout repository
@@ -24,9 +40,33 @@ jobs:
       - name: Make mvnw executable
         run: chmod +x mvnw
 
+      - name: Initialize test database
+        env:
+          PGPASSWORD: ci-test-password
+        run: |
+          psql -h localhost -U postgres -d v.e.i.l -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE projects (
+            id integer PRIMARY KEY,
+            name text
+          );
+          CREATE TABLE queries (
+            id integer PRIMARY KEY,
+            project_id integer REFERENCES projects(id),
+            status text
+          );
+          INSERT INTO projects (id, name) VALUES
+            (1, 'Alpha'),
+            (2, 'Beta');
+          INSERT INTO queries (id, project_id, status) VALUES
+            (1, 1, 'done'),
+            (2, 1, 'pending'),
+            (3, 2, 'done');
+          ANALYZE;
+          SQL
+
       - name: Run test suite
         env:
-          DB_PASSWORD: 9707810398
+          DB_PASSWORD: ci-test-password
         run: sh mvnw test
 
       - name: Validate frontend JavaScript syntax
