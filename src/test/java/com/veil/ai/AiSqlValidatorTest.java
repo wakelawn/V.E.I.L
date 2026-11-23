@@ -79,4 +79,36 @@ class AiSqlValidatorTest {
         assertTrue(result.isValid());
         assertTrue(result.getWarnings().stream().anyMatch(w -> w.contains("LIMIT")));
     }
+
+    @Test
+    void analyzeAllowedAfterIndexCreation() {
+        // ANALYZE is no longer forbidden - essential for planner to use new indexes
+        AiSqlValidationResult result = validator.validate("ANALYZE queries;", null);
+        assertTrue(result.isValid(), "ANALYZE should be allowed: " + result.getErrorMessage());
+    }
+
+    @Test
+    void explainAllowedForVerification() {
+        // EXPLAIN is no longer forbidden - AI can suggest running EXPLAIN to verify index usage
+        AiSqlValidationResult result = validator.validate("EXPLAIN SELECT id FROM queries WHERE status = 'done';", null);
+        assertTrue(result.isValid(), "EXPLAIN should be allowed: " + result.getErrorMessage());
+    }
+
+    @Test
+    void analyzeSuggestionAllowed() {
+        AiSqlValidationResult result = validator.validateSuggestionSql("ANALYZE queries;");
+        assertTrue(result.isValid());
+    }
+
+    @Test
+    void createIndexStillAllowed() {
+        AiSqlValidationResult result = validator.validateSuggestionSql("CREATE INDEX idx_q_status ON queries (status);");
+        assertTrue(result.isValid());
+    }
+
+    @Test
+    void dangerousDdlStillRejected() {
+        AiSqlValidationResult result = validator.validateSuggestionSql("DROP TABLE queries;");
+        assertFalse(result.isValid());
+    }
 }

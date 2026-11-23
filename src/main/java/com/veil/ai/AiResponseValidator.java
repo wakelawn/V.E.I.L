@@ -57,11 +57,11 @@ public class AiResponseValidator {
 
                 // Validate suggestionSql if present
                 if (f.suggestionSql() != null && !f.suggestionSql().isBlank()) {
-                    // Check for dangerous DDL
+                    // Check for dangerous DDL - only CREATE INDEX or ANALYZE allowed
                     String sql = f.suggestionSql().trim().toUpperCase();
-                    if (!sql.startsWith("CREATE INDEX")) {
+                    if (!sql.startsWith("CREATE INDEX") && !sql.startsWith("ANALYZE")) {
                         return ValidationResult.invalid(
-                                List.of("Finding " + i + ": suggestionSql must be CREATE INDEX only"));
+                                List.of("Finding " + i + ": suggestionSql must be CREATE INDEX or ANALYZE only"));
                     }
                 }
             }

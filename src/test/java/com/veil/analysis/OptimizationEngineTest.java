@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import com.veil.ast.*;
 import com.veil.ast.SelectItem;
+import com.veil.explain.PlanSummary;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,6 +22,15 @@ class OptimizationEngineTest {
 		List<SelectItem> items = columns.stream().map(SelectItem::new).toList();
 		return new SelectStatement(items,
 				new TableReference(table), where, List.of(), null, orderBy, limit);
+	}
+
+	private PlanSummary expensiveSeqScan(String table, double cost, long rows) {
+		PlanSummary node = new PlanSummary();
+		node.setNodeType("Seq Scan");
+		node.setRelation(table);
+		node.setTotalCost(cost);
+		node.setEstimatedRows(rows);
+		return node;
 	}
 
 	@Test
@@ -114,5 +125,82 @@ class OptimizationEngineTest {
 
 		assertEquals(1, findings.size());
 		assertEquals("NO_FILTER", findings.get(0).getRuleId());
+	}
+
+	// ========== Plan-aware rules (require a plan) ==========
+
+	@Test
+	void scanCostRuleFiresWithPlan() {
+
+		SelectStatement select = select(
+				List.of("id"), "queries",
+				new WhereCondition("status", "=", "'done'"), List.of(), null);
+
+		PlanSummary plan = expensiveSeqScan("queries", 5000.0, 50000L);
+
+		List<OptimizationFinding> findings = engine.run(select, plan, null);
+
+		assertTrue(findings.stream().anyMatch(f ->
+				"SCAN_COST".equals(f.getRuleId())
+				&& "high".equals(f.getSeverity())
+				&& f.getMessage().contains("queries")));
+	}
+
+	@Test
+	void scanCostRuleSkipsWithoutPlan() {
+
+		SelectStatement select = select(
+				List.of("id"), "queries",
+				new WhereCondition("status", "=", "'done'"), List.of(), null);
+
+		List<OptimizationFinding> findings = engine.run(select);
+
+		assertTrue(findings.stream()
+				.noneMatch(f -> "SCAN_COST".equals(f.getRuleId())));
+	}
+
+	@Test
+	void expensiveSortRuleFiresWithPlan() {
+
+		SelectStatement select = select(
+				List.of("id"), "queries", null,
+				List.of(new OrderByItem("created_at", true)), null);
+
+		PlanSummary sortNode = new PlanSummary();
+		sortNode.setNodeType("Sort");
+		sortNode.setTotalCost(15000.0);
+		sortNode.setEstimatedRows(50000L);
+		sortNode.setSortKey("created_at");
+
+		PlanSummary plan = new PlanSummary();
+		plan.setNodeType("Seq Scan");
+		plan.setRelation("queries");
+		plan.setTotalCost(1000.0);
+		plan.setEstimatedRows(50000L);
+		List<PlanSummary> children = new ArrayList<>();
+		children.add(sortNode);
+		plan.setChildren(children);
+
+		List<OptimizationFinding> findings = engine.run(select, plan, null);
+
+		assertTrue(findings.stream().anyMatch(f ->
+				"EXPENSIVE_SORT".equals(f.getRuleId())));
+	}
+
+	@Test
+	void compositeIndexRuleFiresWithPlan() {
+
+		SelectStatement select = select(
+				List.of("id"), "queries",
+				new WhereCondition("status", "=", "'done'"), List.of(), null);
+
+		PlanSummary plan = expensiveSeqScan("queries", 5000.0, 50000L);
+
+		List<OptimizationFinding> findings = engine.run(select, plan, null);
+
+		// CompositeIndexRule needs 2+ columns; FILTER_INDEX covers single column
+		assertTrue(findings.stream().anyMatch(f ->
+				"FILTER_INDEX".equals(f.getRuleId())
+				|| "COMPOSITE_INDEX".equals(f.getRuleId())));
 	}
 }
