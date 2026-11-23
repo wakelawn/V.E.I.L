@@ -23,15 +23,20 @@ public class ConnectionsController {
 	private final ConnectionTester tester;
 	private final DatabaseDiscovery discovery;
 	private final ActiveConnection active;
+	private final ConnectionTarget target;
+	private final ConnectionSettings settings;
 
 	public ConnectionsController(ConnectionRegistry registry,
 			ConnectionTester tester, DatabaseDiscovery discovery,
-			ActiveConnection active) {
+			ActiveConnection active, ConnectionTarget target,
+			ConnectionSettings settings) {
 
 		this.registry = registry;
 		this.tester = tester;
 		this.discovery = discovery;
 		this.active = active;
+		this.target = target;
+		this.settings = settings;
 	}
 
 	@GetMapping
@@ -52,6 +57,12 @@ public class ConnectionsController {
 
 		String password = text(request, "password");
 
+		if (registry.findAll().size() >= settings.getMaxSavedConnections()) {
+			throw new IllegalArgumentException(
+					"Only " + settings.getMaxSavedConnections()
+							+ " saved connections are allowed; delete one first");
+		}
+
 		SavedConnection saved = new SavedConnection(
 				requiredText(request, "name"),
 				requiredText(request, "host"),
@@ -59,6 +70,9 @@ public class ConnectionsController {
 				requiredText(request, "databaseName"),
 				requiredText(request, "username"),
 				password == null ? "" : password);
+
+		target.validate(saved.getName(), saved.getHost(), saved.getPort(),
+				saved.getDatabaseName(), saved.getUsername());
 
 // never save a connection that does not work
 		tester.test(saved.getHost(), saved.getPort(),
@@ -69,6 +83,9 @@ public class ConnectionsController {
 
 // the connection the user just added is the one they want to use
 		active.activate(stored);
+
+// the pool owns the password from here on
+		registry.clearPassword(stored.getId());
 
 		return ConnectionView.from(stored);
 	}
@@ -81,6 +98,10 @@ public class ConnectionsController {
 		String host = requiredText(request, "host");
 		String username = requiredText(request, "username");
 		int port = portFrom(request);
+
+		target.validateHost(host);
+		target.validatePort(port);
+		target.validateUsername(username);
 
 		String password = text(request, "password");
 
@@ -130,11 +151,17 @@ public class ConnectionsController {
 			saved.setPassword(password);
 		}
 
+		target.validate(saved.getName(), saved.getHost(), saved.getPort(),
+				saved.getDatabaseName(), saved.getUsername());
+
 		tester.test(saved.getHost(), saved.getPort(),
 				saved.getDatabaseName(), saved.getUsername(),
 				saved.getPassword());
 
 		active.activate(saved);
+
+// the pool owns the password from here on
+		registry.clearPassword(saved.getId());
 
 		Map<String, Object> body = new LinkedHashMap<>();
 
@@ -174,9 +201,15 @@ public class ConnectionsController {
 					"'password' is required to test this connection");
 		}
 
+		target.validate(saved.getName(), saved.getHost(), saved.getPort(),
+				saved.getDatabaseName(), saved.getUsername());
+
 		tester.test(saved.getHost(), saved.getPort(),
 				saved.getDatabaseName(), saved.getUsername(),
 				saved.getPassword());
+
+// keep the password out of the long-lived registry object
+		registry.clearPassword(saved.getId());
 
 		return Map.of("tested", true, "name", saved.getName());
 	}
