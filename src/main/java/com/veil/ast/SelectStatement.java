@@ -2,79 +2,97 @@ package com.veil.ast;
 
 import java.util.List;
 
+// Full SELECT statement with all clauses.
 public class SelectStatement implements Statement {
 
-	private final List<String> columns;
-	private final TableReference table;
-	private final Condition whereCondition;
-	private final List<JoinClause> joins;
-	private final List<OrderByItem> orderBy;
-	private final Long limit;
+    private final List<SelectItem> selectItems;
+    private final TableReference table;
+    private final Condition whereCondition;
+    private final List<JoinClause> joins;
+    private final GroupByClause groupBy;
+    private final List<OrderByItem> orderBy;
+    private final Long limit;
 
-	// kept for the simple grammar (no joins / order by / limit)
-	public SelectStatement(List<String> columns, TableReference table,
-			WhereCondition whereCondition) {
+    // Minimal constructor for backward compatibility (simple grammar)
+    public SelectStatement(List<String> columns, TableReference table, WhereCondition whereCondition) {
+        this(columns.stream().map(SelectItem::new).toList(), table, whereCondition, List.of(), null, List.of(), null);
+    }
 
-		this(columns, table, whereCondition, List.of(), List.of(), null);
-	}
+    // Full constructor
+    public SelectStatement(List<SelectItem> selectItems, TableReference table,
+                           Condition whereCondition, List<JoinClause> joins,
+                           GroupByClause groupBy, List<OrderByItem> orderBy, Long limit) {
 
-	public SelectStatement(List<String> columns, TableReference table,
-			Condition whereCondition, List<JoinClause> joins,
-			List<OrderByItem> orderBy, Long limit) {
+        this.selectItems = selectItems;
+        this.table = table;
+        this.whereCondition = whereCondition;
+        this.joins = joins;
+        this.groupBy = groupBy;
+        this.orderBy = orderBy;
+        this.limit = limit;
+    }
 
-		this.columns = columns;
-		this.table = table;
-		this.whereCondition = whereCondition;
-		this.joins = joins;
-		this.orderBy = orderBy;
-		this.limit = limit;
-	}
+    // Backward compatibility getter - returns column names only
+    public List<String> getColumns() {
+        return selectItems.stream().map(SelectItem::toString).toList();
+    }
 
-	public List<String> getColumns() {
-		return columns;
-	}
+    // New getter for full select items
+    public List<SelectItem> getSelectItems() {
+        return selectItems;
+    }
 
-	public TableReference getTable() {
-		return table;
-	}
+    public TableReference getTable() {
+        return table;
+    }
 
-	public Condition getWhereCondition() {
-		return whereCondition;
-	}
+    public Condition getWhereCondition() {
+        return whereCondition;
+    }
 
-	public List<JoinClause> getJoins() {
-		return joins;
-	}
+    public List<JoinClause> getJoins() {
+        return joins;
+    }
 
-	public List<OrderByItem> getOrderBy() {
-		return orderBy;
-	}
+    public GroupByClause getGroupBy() {
+        return groupBy;
+    }
 
-	public Long getLimit() {
-		return limit;
-	}
+    public List<OrderByItem> getOrderBy() {
+        return orderBy;
+    }
 
-	@Override
-	public String toString() {
+    public Long getLimit() {
+        return limit;
+    }
 
-		String result = "SELECT " + columns + " FROM " + table;
+    @Override
+    public String toString() {
+        StringBuilder result = new StringBuilder("SELECT ");
+        result.append(selectItems.stream().map(SelectItem::toString).toList());
 
-		for (JoinClause join : joins) {
-			result += " " + join;
-		}
+        result.append(" FROM ").append(table);
 
-		if (whereCondition != null) {
-			result += " WHERE " + whereCondition;
-		}
+        for (JoinClause join : joins) {
+            result.append(" ").append(join);
+        }
 
-		if (!orderBy.isEmpty()) {
-			result += " ORDER BY " + orderBy;
-		}
+        if (whereCondition != null) {
+            result.append(" WHERE ").append(whereCondition);
+        }
 
-		if (limit != null) {
-			result += " LIMIT " + limit;
-		}
+        if (groupBy != null) {
+            result.append(" ").append(groupBy);
+        }
 
-		return result;
-	}
+        if (!orderBy.isEmpty()) {
+            result.append(" ORDER BY ").append(orderBy);
+        }
+
+        if (limit != null) {
+            result.append(" LIMIT ").append(limit);
+        }
+
+        return result.toString();
+    }
 }

@@ -1,13 +1,6 @@
 package com.veil.parser;
 
-import com.veil.ast.Condition;
-import com.veil.ast.JoinClause;
-import com.veil.ast.LogicalCondition;
-import com.veil.ast.OrderByItem;
-import com.veil.ast.SelectStatement;
-import com.veil.ast.Statement;
-import com.veil.ast.TableReference;
-import com.veil.ast.WhereCondition;
+import com.veil.ast.*;
 import com.veil.lexer.Token;
 import com.veil.lexer.TokenType;
 
@@ -20,255 +13,374 @@ import java.util.List;
 // (AND binds tighter than OR)
 public class Parser {
 
-	private final List<Token> tokens;
-	private int position = 0;
+    private final List<Token> tokens;
+    private int position = 0;
 
-	public Parser(List<Token> tokens) {
-		this.tokens = tokens;
-	}
+    public Parser(List<Token> tokens) {
+        this.tokens = tokens;
+    }
 
-	public Statement parse() {
+    public Statement parse() {
 
-		consume(TokenType.SELECT);
+        consume(TokenType.SELECT);
 
-		List<String> columns = parseColumns();
+        boolean distinct = match(TokenType.DISTINCT);
 
-		consume(TokenType.FROM);
+        List<SelectItem> selectItems = parseSelectItems();
 
-		TableReference table = parseTableReference();
+        consume(TokenType.FROM);
 
-		List<JoinClause> joins = parseJoins();
+        TableReference table = parseTableReference();
 
-		Condition whereCondition = null;
+        List<JoinClause> joins = parseJoins();
 
-		if (match(TokenType.WHERE)) {
-			whereCondition = parseOr();
-		}
+        Condition whereCondition = null;
 
-		List<OrderByItem> orderBy = parseOrderBy();
+        if (match(TokenType.WHERE)) {
+            whereCondition = parseOr();
+        }
 
-		Long limit = null;
+        GroupByClause groupBy = null;
+        if (match(TokenType.GROUP)) {
+            consume(TokenType.BY);
+            groupBy = parseGroupBy();
+        }
 
-		if (match(TokenType.LIMIT)) {
-			limit = Long.valueOf(consume(TokenType.NUMBER).getValue());
-		}
+        List<OrderByItem> orderBy = parseOrderBy();
 
-		// semicolon
-		match(TokenType.SEMICOLON);
+        Long limit = null;
 
-		consume(TokenType.EOF);
+        if (match(TokenType.LIMIT)) {
+            limit = Long.valueOf(consume(TokenType.NUMBER).getValue());
+        }
 
-		return new SelectStatement(columns, table, whereCondition,
-				joins, orderBy, limit);
-	}
+        // semicolon
+        match(TokenType.SEMICOLON);
 
-	// SELECT * | SELECT column[, column]... (qualified names allowed: u.id)
-	private List<String> parseColumns() {
+        consume(TokenType.EOF);
 
-		List<String> columns = new ArrayList<>();
+        return new SelectStatement(selectItems, table, whereCondition,
+                joins, groupBy, orderBy, limit);
+    }
 
-		if (match(TokenType.STAR)) {
-			columns.add("*");
-			return columns;
-		}
+    // SELECT [DISTINCT] select_item[, select_item]...
+    private List<SelectItem> parseSelectItems() {
 
-		columns.add(parseColumnReference());
+        List<SelectItem> items = new ArrayList<>();
 
-		while (match(TokenType.COMMA)) {
-			columns.add(parseColumnReference());
-		}
+        if (match(TokenType.STAR)) {
+            items.add(new SelectItem("*"));
+            return items;
+        }
 
-		return columns;
-	}
+        items.add(parseSelectItem());
 
-	// column or qualified column: u.id
-	private String parseColumnReference() {
+        while (match(TokenType.COMMA)) {
+            items.add(parseSelectItem());
+        }
 
-		String name = consume(TokenType.IDENTIFIER).getValue();
+        return items;
+    }
 
-		if (match(TokenType.DOT)) {
-			name += "." + consume(TokenType.IDENTIFIER).getValue();
-		}
+    // select_item: expression [AS alias]
+    private SelectItem parseSelectItem() {
+        Expression expr = parseExpression();
 
-		return name;
-	}
+        String alias = null;
+        if (match(TokenType.AS)) {
+            alias = consume(TokenType.IDENTIFIER).getValue();
+        } else if (peek().getType() == TokenType.IDENTIFIER
+                && !isKeyword(peek().getValue())) {
+            // implicit alias (without AS)
+            alias = consume(TokenType.IDENTIFIER).getValue();
+        }
 
-	// table name with optional alias: users, users u, users AS u
-	private TableReference parseTableReference() {
+        return new SelectItem(expr, alias);
+    }
 
-		String tableName = consume(TokenType.IDENTIFIER).getValue();
-		String alias = parseOptionalAlias();
+    // expression: aggregate_function | column_reference | number | string | ...
+    private Expression parseExpression() {
+        Token current = peek();
 
-		return new TableReference(tableName, alias);
-	}
+        // Aggregate functions: COUNT(*), AVG(col), SUM(col), etc.
+        if (isAggregateFunction(current.getType())) {
+            return parseAggregateFunction();
+        }
 
-	// an alias is only present when the next token is a plain identifier
-	// (keywords like WHERE/JOIN/ORDER stop it naturally)
-	private String parseOptionalAlias() {
+        // Number literal
+        if (current.getType() == TokenType.NUMBER) {
+            position++;
+            return new NumberLiteral(current.getValue());
+        }
 
-		if (match(TokenType.AS)) {
-			return consume(TokenType.IDENTIFIER).getValue();
-		}
+        // String literal
+        if (current.getType() == TokenType.STRING) {
+            position++;
+            return new StringLiteral(current.getValue());
+        }
 
-		if (peek().getType() == TokenType.IDENTIFIER) {
-			return consume(TokenType.IDENTIFIER).getValue();
-		}
+        // Column reference (possibly qualified)
+        return parseColumnReferenceExpression();
+    }
 
-		return null;
-	}
+    private boolean isAggregateFunction(TokenType type) {
+        return type == TokenType.COUNT
+                || type == TokenType.SUM
+                || type == TokenType.AVG
+                || type == TokenType.MIN
+                || type == TokenType.MAX;
+    }
+
+    // COUNT(*), AVG(col), SUM(col), MIN(col), MAX(col) [DISTINCT]
+    private AggregateExpression parseAggregateFunction() {
+        Token funcToken = consume(peek().getType()); // COUNT, SUM, AVG, MIN, MAX
+        String function = funcToken.getValue().toUpperCase();
 
-	// zero or more: JOIN table [alias] ON condition
-	private List<JoinClause> parseJoins() {
+        consume(TokenType.LPAREN);
 
-		List<JoinClause> joins = new ArrayList<>();
+        boolean distinct = false;
+        if (match(TokenType.DISTINCT)) {
+            distinct = true;
+        }
 
-		while (peek().getType() == TokenType.JOIN) {
+        String argument;
+        if (match(TokenType.STAR)) {
+            argument = "*";
+        } else {
+            // Column reference (possibly qualified)
+            argument = parseColumnReference();
+        }
 
-			consume(TokenType.JOIN);
+        consume(TokenType.RPAREN);
 
-			TableReference table = parseTableReference();
+        return new AggregateExpression(function, argument, distinct);
+    }
 
-			consume(TokenType.ON);
+    private Expression parseColumnReferenceExpression() {
+        String name = consume(TokenType.IDENTIFIER).getValue();
 
-			joins.add(new JoinClause(table, parseOr()));
-		}
+        if (match(TokenType.DOT)) {
+            name += "." + consume(TokenType.IDENTIFIER).getValue();
+        }
 
-		return joins;
-	}
+        return new ColumnReference(name);
+    }
 
-	// lowest precedence: OR combines two AND-groups
-	private Condition parseOr() {
+    private GroupByClause parseGroupBy() {
+        List<String> columns = new ArrayList<>();
 
-		Condition left = parseAnd();
+        columns.add(parseColumnReference());
 
-		while (peek().getType() == TokenType.OR) {
+        while (match(TokenType.COMMA)) {
+            columns.add(parseColumnReference());
+        }
 
-			consume(TokenType.OR);
-			left = new LogicalCondition("OR", left, parseAnd());
-		}
+        Condition havingCondition = null;
+        if (match(TokenType.HAVING)) {
+            havingCondition = parseOr();
+        }
 
-		return left;
-	}
+        return new GroupByClause(columns, havingCondition);
+    }
 
-	// higher precedence: AND combines two comparisons
-	private Condition parseAnd() {
+    // column or qualified column: u.id
+    private String parseColumnReference() {
 
-		Condition left = parseComparison();
+        String name = consume(TokenType.IDENTIFIER).getValue();
 
-		while (peek().getType() == TokenType.AND) {
+        if (match(TokenType.DOT)) {
+            name += "." + consume(TokenType.IDENTIFIER).getValue();
+        }
 
-			consume(TokenType.AND);
-			left = new LogicalCondition("AND", left, parseComparison());
-		}
+        return name;
+    }
 
-		return left;
-	}
+    // table name with optional alias: users, users u, users AS u
+    private TableReference parseTableReference() {
 
-	// one leaf: column op value
-	private Condition parseComparison() {
+        String tableName = consume(TokenType.IDENTIFIER).getValue();
+        String alias = parseOptionalAlias();
 
-		String column = parseColumnReference();
+        return new TableReference(tableName, alias);
+    }
 
-		Token operatorToken = peek();
+    // an alias is only present when the next token is a plain identifier
+    // (keywords like WHERE/JOIN/ORDER/GROUP/HAVING/LIMIT stop it naturally)
+    private String parseOptionalAlias() {
 
-		if (operatorToken.getType() != TokenType.EQUALS
-				&& operatorToken.getType() != TokenType.NOT_EQUALS
-				&& operatorToken.getType() != TokenType.LESS
-				&& operatorToken.getType() != TokenType.LESS_OR_EQUAL
-				&& operatorToken.getType() != TokenType.GREATER
-				&& operatorToken.getType() != TokenType.GREATER_OR_EQUAL) {
+        if (match(TokenType.AS)) {
+            return consume(TokenType.IDENTIFIER).getValue();
+        }
 
-			throw new ParseException(
-					"Expected comparison operator but found "
-							+ operatorToken.getType());
-		}
+        if (peek().getType() == TokenType.IDENTIFIER && !isKeyword(peek().getValue())) {
+            return consume(TokenType.IDENTIFIER).getValue();
+        }
 
-		position++;
+        return null;
+    }
 
-		Token valueToken = peek();
+    private boolean isKeyword(String value) {
+        String upper = value.toUpperCase();
+        return upper.equals("WHERE") || upper.equals("JOIN") || upper.equals("ORDER")
+                || upper.equals("GROUP") || upper.equals("HAVING")
+                || upper.equals("LIMIT") || upper.equals("ON")
+                || upper.equals("ASC") || upper.equals("DESC")
+                || upper.equals("BY");
+    }
 
-		if (valueToken.getType() != TokenType.NUMBER
-				&& valueToken.getType() != TokenType.STRING
-				&& valueToken.getType() != TokenType.IDENTIFIER) {
+    // zero or more: JOIN table [alias] ON condition
+    private List<JoinClause> parseJoins() {
 
-			throw new ParseException(
-					"Expected value in WHERE condition but found "
-							+ valueToken.getType());
-		}
+        List<JoinClause> joins = new ArrayList<>();
 
-		position++;
+        while (peek().getType() == TokenType.JOIN) {
 
-		String value = valueToken.getValue();
+            consume(TokenType.JOIN);
 
-		if (peek().getType() == TokenType.DOT) {
-			position++;
-			value += "." + consume(TokenType.IDENTIFIER).getValue();
-		}
+            TableReference table = parseTableReference();
 
-		return new WhereCondition(column,
-				operatorToken.getValue(), value);
-	}
+            consume(TokenType.ON);
 
-	// ORDER BY column [ASC|DESC][, column ...]
-	private List<OrderByItem> parseOrderBy() {
+            joins.add(new JoinClause(table, parseOr()));
+        }
 
-		List<OrderByItem> items = new ArrayList<>();
+        return joins;
+    }
 
-		if (!match(TokenType.ORDER)) {
-			return items;
-		}
+    // lowest precedence: OR combines two AND-groups
+    private Condition parseOr() {
 
-		consume(TokenType.BY);
+        Condition left = parseAnd();
 
-		do {
-			String column = parseColumnReference();
+        while (peek().getType() == TokenType.OR) {
 
-			boolean descending = false;
+            consume(TokenType.OR);
+            left = new LogicalCondition("OR", left, parseAnd());
+        }
 
-			if (match(TokenType.DESC)) {
-				descending = true;
-			} else {
-				match(TokenType.ASC);
-			}
+        return left;
+    }
 
-			items.add(new OrderByItem(column, descending));
+    // higher precedence: AND combines two comparisons
+    private Condition parseAnd() {
 
-		} while (match(TokenType.COMMA));
+        Condition left = parseComparison();
 
-		return items;
-	}
+        while (peek().getType() == TokenType.AND) {
 
-	private Token consume(TokenType expected) {
+            consume(TokenType.AND);
+            left = new LogicalCondition("AND", left, parseComparison());
+        }
 
-		Token token = peek();
+        return left;
+    }
 
-		if (token.getType() != expected) {
+    // one leaf: column op value
+    private Condition parseComparison() {
 
-			throw new ParseException(
-					"Expected " + expected + " but found " + token.getType());
-		}
+        Expression left = parseExpression();
 
-		position++;
+        Token operatorToken = peek();
 
-		return token;
-	}
+        if (operatorToken.getType() != TokenType.EQUALS
+                && operatorToken.getType() != TokenType.NOT_EQUALS
+                && operatorToken.getType() != TokenType.LESS
+                && operatorToken.getType() != TokenType.LESS_OR_EQUAL
+                && operatorToken.getType() != TokenType.GREATER
+                && operatorToken.getType() != TokenType.GREATER_OR_EQUAL) {
 
-	private boolean match(TokenType type) {
+            throw new ParseException(
+                    "Expected comparison operator but found "
+                            + operatorToken.getType());
+        }
 
-		if (peek().getType() == type) {
-			position++;
-			return true;
-		}
+        position++;
 
-		return false;
-	}
+        Expression right = parseExpression();
 
-	private Token peek() {
+        return new WhereCondition(
+                expressionToString(left),
+                operatorToken.getValue(),
+                expressionToString(right)
+        );
+    }
 
-		if (position >= tokens.size()) {
-			return new Token(TokenType.EOF, "");
-		}
+    private String expressionToString(Expression expr) {
+        if (expr instanceof ColumnReference) {
+            return ((ColumnReference) expr).getName();
+        }
+        if (expr instanceof NumberLiteral) {
+            return ((NumberLiteral) expr).getValue();
+        }
+        if (expr instanceof StringLiteral) {
+            return ((StringLiteral) expr).getValue();
+        }
+        if (expr instanceof AggregateExpression) {
+            return expr.toString();
+        }
+        return expr.toString();
+    }
 
-		return tokens.get(position);
-	}
+    // ORDER BY column [ASC|DESC][, column ...]
+    private List<OrderByItem> parseOrderBy() {
+
+        List<OrderByItem> items = new ArrayList<>();
+
+        if (!match(TokenType.ORDER)) {
+            return items;
+        }
+
+        consume(TokenType.BY);
+
+        do {
+            String column = parseColumnReference();
+
+            boolean descending = false;
+
+            if (match(TokenType.DESC)) {
+                descending = true;
+            } else {
+                match(TokenType.ASC);
+            }
+
+            items.add(new OrderByItem(column, descending));
+
+        } while (match(TokenType.COMMA));
+
+        return items;
+    }
+
+    private Token consume(TokenType expected) {
+
+        Token token = peek();
+
+        if (token.getType() != expected) {
+
+            throw new ParseException(
+                    "Expected " + expected + " but found " + token.getType());
+        }
+
+        position++;
+
+        return token;
+    }
+
+    private boolean match(TokenType type) {
+
+        if (peek().getType() == type) {
+            position++;
+            return true;
+        }
+
+        return false;
+    }
+
+    private Token peek() {
+
+        if (position >= tokens.size()) {
+            return new Token(TokenType.EOF, "");
+        }
+
+        return tokens.get(position);
+    }
 }

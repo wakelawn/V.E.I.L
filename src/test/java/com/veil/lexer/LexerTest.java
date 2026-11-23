@@ -74,8 +74,9 @@ class LexerTest {
 	@Test
 	void throwsOnUnknownCharacter() {
 
+		// parentheses are now valid (LPAREN/RPAREN)
 		assertThrows(RuntimeException.class,
-				() -> new Lexer("SELECT name FROM users WHERE id = (1);")
+				() -> new Lexer("SELECT name FROM users WHERE id = @1;")
 						.tokenize());
 	}
 

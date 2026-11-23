@@ -2,10 +2,8 @@ package com.veil.analysis;
 
 import org.junit.jupiter.api.Test;
 
-import com.veil.ast.OrderByItem;
-import com.veil.ast.SelectStatement;
-import com.veil.ast.TableReference;
-import com.veil.ast.WhereCondition;
+import com.veil.ast.*;
+import com.veil.ast.SelectItem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +30,6 @@ class IndexAdvisorTest {
 	};
 
 	private final IndexAdvisor advisor = new IndexAdvisor(inspector);
-
 	private final OptimizationEngine engine = new OptimizationEngine();
 
 	private OptimizationFinding filterFinding(SelectStatement select) {
@@ -53,9 +50,10 @@ class IndexAdvisorTest {
 	private SelectStatement select(String table, String alias,
 			WhereCondition where) {
 
-		return new SelectStatement(List.of("id"),
+		List<SelectItem> items = List.of(new SelectItem("id"));
+		return new SelectStatement(items,
 				new TableReference(table, alias), where,
-				List.of(), List.of(), null);
+				List.of(), null, List.of(), null);
 	}
 
 	@Test
@@ -179,11 +177,11 @@ class IndexAdvisorTest {
 	@Test
 	void advisorOnlyTouchesFilterFindings() {
 
-		SelectStatement s = new SelectStatement(
-				List.of("*"), new TableReference("queries", null),
+		List<SelectItem> items = List.of(new SelectItem("*"));
+		SelectStatement s = new SelectStatement(items,
+				new TableReference("queries", null),
 				new WhereCondition("status", "=", "'done'"),
-				List.of(), List.of(new OrderByItem("created_at", true)),
-				null);
+				List.of(), null, List.of(new OrderByItem("created_at", true)), null);
 
 		List<OptimizationFinding> findings = engine.run(s);
 

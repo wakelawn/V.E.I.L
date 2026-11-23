@@ -2,10 +2,8 @@ package com.veil.analysis;
 
 import org.junit.jupiter.api.Test;
 
-import com.veil.ast.OrderByItem;
-import com.veil.ast.SelectStatement;
-import com.veil.ast.TableReference;
-import com.veil.ast.WhereCondition;
+import com.veil.ast.*;
+import com.veil.ast.SelectItem;
 
 import java.util.List;
 
@@ -19,8 +17,9 @@ class OptimizationEngineTest {
 	private SelectStatement select(List<String> columns, String table,
 			WhereCondition where, List<OrderByItem> orderBy, Long limit) {
 
-		return new SelectStatement(columns,
-				new TableReference(table), where, List.of(), orderBy, limit);
+		List<SelectItem> items = columns.stream().map(SelectItem::new).toList();
+		return new SelectStatement(items,
+				new TableReference(table), where, List.of(), null, orderBy, limit);
 	}
 
 	@Test
