@@ -28,6 +28,7 @@ public class BenchmarkService {
     public BenchmarkService(ExecutionPlanProvider planProvider,
                             ExplainService explainService,
                             JdbcTemplate jdbcTemplate,
+                            @org.springframework.beans.factory.annotation.Qualifier("targetDataSource")
                             DataSource dataSource) {
         this.planProvider = planProvider;
         this.explainService = explainService;
