@@ -108,6 +108,109 @@ public class ExplainService {
 		return query;
 	}
 
+	/**
+	 * Parses EXPLAIN JSON into a {@link PlanSummary} without running the full
+	 * analysis pipeline. Used by {@code QueryService} so plan-aware
+	 * optimization rules can run even when the explain endpoint is not called.
+	 * Returns {@code null} if the JSON cannot be parsed.
+	 */
+	public static PlanSummary parsePlanJson(String json) {
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+			JsonNode root = mapper.readTree(json);
+
+			if (root == null
+					|| !root.isArray()
+					|| root.isEmpty()
+					|| !root.get(0).has("Plan")) {
+
+				return null;
+			}
+
+			return extractPlanNode(root.get(0).get("Plan"));
+
+		} catch (Exception ignored) {
+			return null;
+		}
+	}
+
+	// Static node extraction used by parsePlanJson. Populates structural
+	// fields and actual metrics but skips the recommendation/cost analysis
+	// (the OptimizationEngine rules do their own analysis on the PlanSummary).
+	private static PlanSummary extractPlanNode(JsonNode plan) {
+
+		PlanSummary summary = new PlanSummary();
+
+		summary.setNodeType(
+				getText(plan, "Node Type", "Unknown"));
+
+		summary.setRelation(
+				getText(plan, "Relation Name", "NotAvailable"));
+
+		summary.setIndex(
+				getText(plan, "Index Name", "NotAvailable"));
+
+		summary.setStartupCost(
+				getDouble(plan, "Startup Cost"));
+
+		summary.setTotalCost(
+				getDouble(plan, "Total Cost"));
+
+		summary.setEstimatedRows(
+				getLong(plan, "Plan Rows"));
+
+		summary.setStrategy(
+				getText(plan, "Strategy", "NotAvailable"));
+
+		summary.setScanDirection(
+				getText(plan, "Scan Direction", "NotAvailable"));
+
+		summary.setEstimatedWidth(
+				getDouble(plan, "Plan Width"));
+
+		summary.setParallelAware(
+				getBoolean(plan, "Parallel Aware"));
+
+		// Actual execution metrics (from EXPLAIN ANALYZE)
+		summary.setActualRows(getLong(plan, "Actual Rows"));
+		summary.setActualStartupTime(getDouble(plan, "Actual Startup Time"));
+		summary.setActualTotalTime(getDouble(plan, "Actual Total Time"));
+		summary.setActualLoops(getLong(plan, "Actual Loops"));
+		summary.setRowsRemovedByFilter(getLong(plan, "Rows Removed by Filter"));
+		summary.setSharedHitBlocks(getLong(plan, "Shared Hit Blocks"));
+		summary.setSharedReadBlocks(getLong(plan, "Shared Read Blocks"));
+		summary.setSharedDirtiedBlocks(getLong(plan, "Shared Dirtied Blocks"));
+		summary.setSharedWrittenBlocks(getLong(plan, "Shared Written Blocks"));
+		summary.setLocalHitBlocks(getLong(plan, "Local Hit Blocks"));
+		summary.setLocalReadBlocks(getLong(plan, "Local Read Blocks"));
+		summary.setLocalDirtiedBlocks(getLong(plan, "Local Dirtied Blocks"));
+		summary.setLocalWrittenBlocks(getLong(plan, "Local Written Blocks"));
+		summary.setTempReadBlocks(getLong(plan, "Temp Read Blocks"));
+		summary.setTempWrittenBlocks(getLong(plan, "Temp Written Blocks"));
+
+		JsonNode filter = plan.get("Filter");
+		if (filter != null && !filter.isNull()) {
+			summary.setFilter(filter.asText());
+		}
+
+		JsonNode sortKey = plan.get("Sort Key");
+		if (sortKey != null && sortKey.isArray() && !sortKey.isEmpty()) {
+			summary.setSortKey(sortKey.get(0).asText());
+		}
+
+		JsonNode plans = plan.get("Plans");
+		if (plans != null && plans.isArray()) {
+			List<PlanSummary> children = new ArrayList<>();
+			for (JsonNode child : plans) {
+				children.add(extractPlanNode(child));
+			}
+			summary.setChildren(children);
+		}
+
+		return summary;
+	}
+
 	private PlanSummary extractPlan(JsonNode plan) {
 
 		PlanSummary summary = new PlanSummary();
@@ -256,7 +359,7 @@ public class ExplainService {
 	}
 
 	//helpers (formatters) (4)
-	private String getText(
+	private static String getText(
 			JsonNode node, String field, String defaultValue) {
 
 		JsonNode value = node.get(field);
@@ -268,7 +371,7 @@ public class ExplainService {
 		return value.asText();
 	}
 
-	private double getDouble(JsonNode node, String field) {
+	private static double getDouble(JsonNode node, String field) {
 
 		JsonNode value = node.get(field);
 
@@ -280,7 +383,7 @@ public class ExplainService {
 		return value.asDouble();
 	}
 
-	private long getLong(JsonNode node, String field) {
+	private static long getLong(JsonNode node, String field) {
 
 		JsonNode value = node.get(field);
 
@@ -292,7 +395,7 @@ public class ExplainService {
 		return value.asLong();
 	}
 
-	private boolean getBoolean(JsonNode node, String field) {
+	private static boolean getBoolean(JsonNode node, String field) {
 
 		JsonNode value = node.get(field);
 

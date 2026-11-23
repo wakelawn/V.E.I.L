@@ -21,7 +21,7 @@ public class AiSqlValidator {
     private static final Set<String> FORBIDDEN_KEYWORDS = Set.of(
             "DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE",
             "TRUNCATE", "GRANT", "REVOKE", "COMMIT", "ROLLBACK",
-            "SAVEPOINT", "VACUUM", "ANALYZE", "EXPLAIN", "COPY",
+            "SAVEPOINT", "VACUUM", "COPY",
             "\\\\copy", "\\\\dt", "\\\\d", "\\\\l"
     );
 
@@ -63,30 +63,44 @@ public class AiSqlValidator {
             }
         }
 
-        // 3. Must be SELECT or WITH (read-only)
+        // 3. Must be SELECT, WITH, ANALYZE, or EXPLAIN (read-only).
+        // ANALYZE updates planner statistics after index creation.
+        // EXPLAIN shows the execution plan for verification.
         String trimmed = sql.trim().toUpperCase();
-        if (!trimmed.startsWith("SELECT") && !trimmed.startsWith("WITH")) {
-            return AiSqlValidationResult.invalid("Only SELECT or WITH queries are allowed");
+        boolean isSelectOrWith = trimmed.startsWith("SELECT")
+                || trimmed.startsWith("WITH");
+        boolean isAnalyzeOrExplain = trimmed.startsWith("ANALYZE")
+                || trimmed.startsWith("EXPLAIN");
+        if (!isSelectOrWith && !isAnalyzeOrExplain) {
+            return AiSqlValidationResult.invalid(
+                    "Only SELECT, WITH, ANALYZE, or EXPLAIN queries are allowed");
         }
 
-        // 4. No multiple statements
-        if (sql.contains(";") && !sql.trim().endsWith(";")) {
+        // 4. No multiple statements (allow one trailing semicolon only)
+        String sqlNoTrailingSemi = sql.trim();
+        if (sqlNoTrailingSemi.endsWith(";")) {
+            sqlNoTrailingSemi = sqlNoTrailingSemi.substring(0, sqlNoTrailingSemi.length() - 1).trim();
+        }
+        if (sqlNoTrailingSemi.contains(";")) {
             return AiSqlValidationResult.invalid("Multiple statements not allowed");
         }
 
-        // 5. Basic syntax validation
-        try {
-            new Parser(new Lexer(sql).tokenize()).parse();
-        } catch (com.veil.parser.ParseException e) {
-            // WITH clauses not yet supported by parser - allow with warning
-            String msg = e.getMessage();
-            if (msg != null && (msg.contains("Expected SELECT but found") && msg.contains("WITH") || msg.contains("IDENTIFIER"))) {
-                warnings.add("WITH clause detected - parser support for CTEs is experimental");
-                return AiSqlValidationResult.valid(sql, warnings);
+        // 5. Basic syntax validation (SELECT/WITH only - parser doesn't
+        // handle ANALYZE/EXPLAIN)
+        if (isSelectOrWith) {
+            try {
+                new Parser(new Lexer(sql).tokenize()).parse();
+            } catch (com.veil.parser.ParseException e) {
+                // WITH clauses not yet supported by parser - allow with warning
+                String msg = e.getMessage();
+                if (msg != null && (msg.contains("Expected SELECT but found") && msg.contains("WITH") || msg.contains("IDENTIFIER"))) {
+                    warnings.add("WITH clause detected - parser support for CTEs is experimental");
+                    return AiSqlValidationResult.valid(sql, warnings);
+                }
+                return AiSqlValidationResult.invalid("Syntax error: " + msg);
+            } catch (Exception e) {
+                return AiSqlValidationResult.invalid("Syntax error: " + e.getMessage());
             }
-            return AiSqlValidationResult.invalid("Syntax error: " + msg);
-        } catch (Exception e) {
-            return AiSqlValidationResult.invalid("Syntax error: " + e.getMessage());
         }
 
         // 6. Check for common issues
@@ -114,13 +128,9 @@ public class AiSqlValidator {
             return AiSqlValidationResult.valid(""); // Empty is OK (no suggestion)
         }
 
-        // For DDL suggestions (CREATE INDEX), allow more keywords
+        // For DDL suggestions (CREATE INDEX, ANALYZE), allow more keywords
         String upper = suggestionSql.toUpperCase().trim();
-        if (upper.startsWith("CREATE INDEX")) {
-            // Allow CREATE INDEX
-            if (!upper.startsWith("CREATE INDEX")) {
-                return AiSqlValidationResult.invalid("Only CREATE INDEX DDL is allowed");
-            }
+        if (upper.startsWith("CREATE INDEX") || upper.startsWith("ANALYZE")) {
             return AiSqlValidationResult.valid(suggestionSql);
         }
 
