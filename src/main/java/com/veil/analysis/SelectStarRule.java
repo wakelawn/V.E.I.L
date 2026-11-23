@@ -1,26 +1,35 @@
 package com.veil.analysis;
 
 import com.veil.ast.SelectStatement;
+import com.veil.explain.PlanSummary;
 
 import java.util.List;
 
-// rule 1: SELECT * asks the database for every column, including ones the
-// caller may not need. That is extra data to read, send, and ignore
+// Rule 1: SELECT * asks the database for every column.
 public class SelectStarRule implements OptimizationRule {
 
-	@Override
-	public void check(SelectStatement select, List<OptimizationFinding> findings) {
+    @Override
+    public String getRuleId() { return "SELECT_STAR"; }
 
-		if (!select.getColumns().contains("*")) {
-			return;
-		}
+    @Override
+    public void check(SelectStatement select, PlanSummary plan, java.util.Map<String, Object> schema, List<OptimizationFinding> findings) {
 
-		findings.add(new OptimizationFinding(
-				"SELECT_STAR",
-				"high",
-				"Avoid SELECT *",
-				"SELECT * reads every column of '" + select.getTable().getTableName()
-						+ "'. List only the columns you need to reduce the data read and transferred.",
-				null));
-	}
+        if (!select.getColumns().contains("*")) {
+            return;
+        }
+
+        String tableName = select.getTable() != null ? select.getTable().getTableName() : "table";
+
+        findings.add(new OptimizationFinding(
+                "SELECT_STAR",
+                "high",
+                "Avoid SELECT *",
+                "SELECT * reads every column of '" + tableName
+                        + "'. List only the columns you need to reduce I/O and network transfer.",
+                null)
+                .withEvidence("SELECT * found in column list")
+                .withConfidence(0.95)
+                .withEvidenceLevel("AST_ONLY")
+                .withVerificationStatus("UNVERIFIED"));
+    }
 }
