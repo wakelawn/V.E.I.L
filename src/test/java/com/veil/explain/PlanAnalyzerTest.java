@@ -116,8 +116,10 @@ class PlanAnalyzerTest {
 
 		List<String> recs = allRecommendations(sort);
 
-		assertEquals(2, recs.size());
+		// Now includes: bottleneck, seq scan filter, sort insight
+		assertEquals(3, recs.size());
 		assertTrue(recs.stream().anyMatch(r -> r.contains("Plan bottleneck")));
 		assertTrue(recs.stream().anyMatch(r -> r.contains("(status = 'done')")));
+		assertTrue(recs.stream().anyMatch(r -> r.contains("Sort operation")));
 	}
 }

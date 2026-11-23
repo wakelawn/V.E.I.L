@@ -24,6 +24,26 @@ public class PlanSummary {
 	private String filter;
 	private String sortKey;
 
+	// ========== ACTUAL EXECUTION METRICS (from EXPLAIN ANALYZE) ==========
+	private long actualRows;
+	private double actualStartupTime;   // ms
+	private double actualTotalTime;     // ms
+	private long actualLoops;
+	private long rowsRemovedByFilter;
+	private long sharedHitBlocks;
+	private long sharedReadBlocks;
+	private long sharedDirtiedBlocks;
+	private long sharedWrittenBlocks;
+	private long localHitBlocks;
+	private long localReadBlocks;
+	private long localDirtiedBlocks;
+	private long localWrittenBlocks;
+	private long tempReadBlocks;
+	private long tempWrittenBlocks;
+	private double planningTime;        // ms
+	private double executionTime;       // ms
+	// =====================================================================
+
 	// cost breakdown (set on the root only)
 	private List<CostEntry> costBreakdown = new ArrayList<>();
 
@@ -84,6 +104,144 @@ public class PlanSummary {
 	public void setEstimatedRows(long estimatedRows) {
 		this.estimatedRows = estimatedRows;
 	}
+
+	// ========== ACTUAL METRICS GETTERS/SETTERS ==========
+	public long getActualRows() {
+		return actualRows;
+	}
+
+	public void setActualRows(long actualRows) {
+		this.actualRows = actualRows;
+	}
+
+	public double getActualStartupTime() {
+		return actualStartupTime;
+	}
+
+	public void setActualStartupTime(double actualStartupTime) {
+		this.actualStartupTime = actualStartupTime;
+	}
+
+	public double getActualTotalTime() {
+		return actualTotalTime;
+	}
+
+	public void setActualTotalTime(double actualTotalTime) {
+		this.actualTotalTime = actualTotalTime;
+	}
+
+	public long getActualLoops() {
+		return actualLoops;
+	}
+
+	public void setActualLoops(long actualLoops) {
+		this.actualLoops = actualLoops;
+	}
+
+	public long getRowsRemovedByFilter() {
+		return rowsRemovedByFilter;
+	}
+
+	public void setRowsRemovedByFilter(long rowsRemovedByFilter) {
+		this.rowsRemovedByFilter = rowsRemovedByFilter;
+	}
+
+	public long getSharedHitBlocks() {
+		return sharedHitBlocks;
+	}
+
+	public void setSharedHitBlocks(long sharedHitBlocks) {
+		this.sharedHitBlocks = sharedHitBlocks;
+	}
+
+	public long getSharedReadBlocks() {
+		return sharedReadBlocks;
+	}
+
+	public void setSharedReadBlocks(long sharedReadBlocks) {
+		this.sharedReadBlocks = sharedReadBlocks;
+	}
+
+	public long getSharedDirtiedBlocks() {
+		return sharedDirtiedBlocks;
+	}
+
+	public void setSharedDirtiedBlocks(long sharedDirtiedBlocks) {
+		this.sharedDirtiedBlocks = sharedDirtiedBlocks;
+	}
+
+	public long getSharedWrittenBlocks() {
+		return sharedWrittenBlocks;
+	}
+
+	public void setSharedWrittenBlocks(long sharedWrittenBlocks) {
+		this.sharedWrittenBlocks = sharedWrittenBlocks;
+	}
+
+	public long getLocalHitBlocks() {
+		return localHitBlocks;
+	}
+
+	public void setLocalHitBlocks(long localHitBlocks) {
+		this.localHitBlocks = localHitBlocks;
+	}
+
+	public long getLocalReadBlocks() {
+		return localReadBlocks;
+	}
+
+	public void setLocalReadBlocks(long localReadBlocks) {
+		this.localReadBlocks = localReadBlocks;
+	}
+
+	public long getLocalDirtiedBlocks() {
+		return localDirtiedBlocks;
+	}
+
+	public void setLocalDirtiedBlocks(long localDirtiedBlocks) {
+		this.localDirtiedBlocks = localDirtiedBlocks;
+	}
+
+	public long getLocalWrittenBlocks() {
+		return localWrittenBlocks;
+	}
+
+	public void setLocalWrittenBlocks(long localWrittenBlocks) {
+		this.localWrittenBlocks = localWrittenBlocks;
+	}
+
+	public long getTempReadBlocks() {
+		return tempReadBlocks;
+	}
+
+	public void setTempReadBlocks(long tempReadBlocks) {
+		this.tempReadBlocks = tempReadBlocks;
+	}
+
+	public long getTempWrittenBlocks() {
+		return tempWrittenBlocks;
+	}
+
+	public void setTempWrittenBlocks(long tempWrittenBlocks) {
+		this.tempWrittenBlocks = tempWrittenBlocks;
+	}
+
+	public double getPlanningTime() {
+		return planningTime;
+	}
+
+	public void setPlanningTime(double planningTime) {
+		this.planningTime = planningTime;
+	}
+
+	public double getExecutionTime() {
+		return executionTime;
+	}
+
+	public void setExecutionTime(double executionTime) {
+		this.executionTime = executionTime;
+	}
+	// =====================================================
 
 	public String getStrategy() {
 		return strategy;
@@ -196,4 +354,34 @@ public class PlanSummary {
 	public void setPlanSummary(String planSummary) {
 		this.planSummary = planSummary;
 	}
+
+	// ========== HELPER METHODS FOR ACTUAL METRICS ==========
+
+	public boolean hasActualMetrics() {
+		return actualRows > 0 || actualTotalTime > 0 || actualLoops > 0;
+	}
+
+	public double getEstimatedVsActualRatio() {
+		if (estimatedRows <= 0 || actualRows <= 0) return 0.0;
+		return (double) actualRows / (double) estimatedRows;
+	}
+
+	public boolean hasCardinalityMismatch() {
+		double ratio = getEstimatedVsActualRatio();
+		return ratio > 0 && (ratio > 10.0 || ratio < 0.1); // 10x or 10x off
+	}
+
+	public double getTotalBufferReads() {
+		return sharedReadBlocks + localReadBlocks + tempReadBlocks;
+	}
+
+	public double getTotalBufferWrites() {
+		return sharedWrittenBlocks + localWrittenBlocks + tempWrittenBlocks;
+	}
+
+	public double getActualTimePerLoop() {
+		if (actualLoops <= 0) return 0.0;
+		return actualTotalTime / actualLoops;
+	}
+	// =====================================================
 }
