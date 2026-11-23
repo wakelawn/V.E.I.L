@@ -111,6 +111,258 @@
   let activeConnectionId = null;
   const connSelect = $('#connSelect');
 
+  // ================= QUERY HISTORY & WORKSPACES =================
+  let projects = [];
+  let activeProjectId = null;
+  let historyQueries = [];
+  let historyTotal = 0;
+  let currentQueryId = null;
+  let queryVersions = [];
+  let historyFilter = 'all'; // 'all' | 'favorites' | tag | projectId
+
+  async function loadProjects() {
+    try {
+      const ordered = await window.VEILHistoryApi.listProjectsOrdered();
+      projects = ordered || [];
+      if (projects.length && activeProjectId === null) {
+        activeProjectId = projects.find(p => p.isDefaultProject)?.id || projects[0].id;
+      }
+      renderProjectDropdown();
+    } catch {
+      projects = [];
+      renderProjectDropdown();
+    }
+  }
+
+  function renderProjectDropdown() {
+    const sel = $('#projectSelect');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML =
+      '<option value="default">Default Workspace</option>' +
+      projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    const target = projects.find(p => p.id === current) ? current :
+      (activeProjectId || 'default');
+    sel.value = target;
+  }
+
+  async function onProjectChanged() {
+    const sel = $('#projectSelect');
+    const val = sel ? sel.value : 'default';
+    if (val === 'default') {
+      activeProjectId = null;
+    } else {
+      const p = projects.find(p => String(p.id) === val);
+      if (p) activeProjectId = p.id;
+    }
+    await loadHistoryQueries();
+  }
+
+  async function loadHistoryQueries() {
+    try {
+      let result;
+      if (historyFilter === 'favorites') {
+        const favs = await window.VEILHistoryApi.listQueries({ page: 0, size: 100 });
+        result = { content: favs.content.filter(q => q.favorite), totalElements: favs.content.filter(q => q.favorite).length };
+      } else if (historyFilter.startsWith('tag:')) {
+        const tag = historyFilter.slice(4);
+        result = await window.VEILHistoryApi.listByTag(tag, { page: 0, size: 50 });
+      } else if (activeProjectId) {
+        result = await window.VEILHistoryApi.listQueriesByProject(activeProjectId, { page: 0, size: 50 });
+      } else {
+        result = await window.VEILHistoryApi.listQueries({ page: 0, size: 50 });
+      }
+      historyQueries = result.content || [];
+      historyTotal = result.totalElements || historyQueries.length;
+      renderHistoryList();
+    } catch {
+      historyQueries = [];
+      renderHistoryList();
+    }
+  }
+
+  function renderHistoryList() {
+    const listEl = $('#historyList');
+    if (!listEl) return;
+
+    const filtered = historyFilter === 'favorites'
+      ? historyQueries.filter(q => q.favorite)
+      : historyQueries;
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="history-empty">No saved queries yet. Create one from the Query Analyzer.</div>';
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(q => {
+      const isFav = q.favorite ? '\u2605' : '\u2606';
+      const tagsHtml = (q.tags || []).map(t => `<span class="history-tag">${esc(t)}</span>`).join('');
+      const verCount = q.version > 1 ? ` v${q.version}` : '';
+      const updated = q.updatedAt ? new Date(q.updatedAt).toLocaleDateString() : '';
+      return `
+        <div class="history-item" data-query-id="${q.id}">
+          <div class="history-item-main">
+            <span class="history-fav" title="Toggle favorite">${isFav}</span>
+            <div class="history-item-info">
+              <div class="history-item-name">${esc(q.name)}</div>
+              <div class="history-item-meta">
+                ${esc(q.databaseName || '')} ${verCount} ${updated ? '\u2022 ' + updated : ''}
+                ${tagsHtml}
+              </div>
+            </div>
+          </div>
+          <div class="history-item-actions">
+            <button class="history-btn" title="Load query">\u2190</button>
+            <button class="history-btn" title="View versions">\u21b7</button>
+            <button class="history-btn history-del" title="Delete">\u2716</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    $$('[data-query-id]').forEach((item) => {
+      const id = item.dataset.queryId;
+      item.querySelector('[title="Load query"]').addEventListener('click', () => loadHistoryQuery(id));
+      item.querySelector('[title="View versions"]').addEventListener('click', () => showVersions(id));
+      item.querySelector('.history-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteHistoryQuery(id);
+      });
+      item.querySelector('.history-fav').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleHistoryFavorite(id);
+      });
+    });
+  }
+
+  async function loadHistoryQuery(id) {
+    try {
+      const q = await window.VEILHistoryApi.getQuery(id);
+      if (!q) { toast('Query not found.'); return; }
+      window.VEILEditor.setValue(q.sqlText || '');
+      currentQueryId = q.id;
+      const savedModal = $('#savedModal');
+      if (savedModal) savedModal.hidden = true;
+      switchView('analyzer');
+      runAnalysis();
+      toast(`Loaded "${q.name}".`);
+    } catch (error) {
+      toast(`Could not load query: ${error.message}`);
+    }
+  }
+
+  async function deleteHistoryQuery(id) {
+    if (!confirm('Delete this saved query?')) return;
+    try {
+      await window.VEILHistoryApi.deleteQuery(id);
+      toast('Query deleted.');
+      await loadHistoryQueries();
+    } catch (error) {
+      toast(`Could not delete: ${error.message}`);
+    }
+  }
+
+  async function toggleHistoryFavorite(id) {
+    try {
+      await window.VEILHistoryApi.toggleFavorite(id);
+      await loadHistoryQueries();
+    } catch (error) {
+      toast(`Could not toggle favorite: ${error.message}`);
+    }
+  }
+
+  async function showVersions(id) {
+    try {
+      const versions = await window.VEILHistoryApi.listVersions(id);
+      const modal = $('#versionsModal');
+      const listEl = $('#versionsList');
+      if (!modal || !listEl) return;
+      listEl.innerHTML = (versions || []).map(v => `
+        <div class="version-item" data-version-id="${v.id}">
+          <div class="version-info">
+            <div class="version-name">v${v.version}</div>
+            <div class="version-date">${v.updatedAt ? new Date(v.updatedAt).toLocaleString() : ''}</div>
+          </div>
+          <div class="version-actions">
+            <button class="version-btn" title="Load version">\u2190</button>
+            <button class="version-btn version-del" title="Delete version">\u2716</button>
+          </div>
+        </div>
+      `).join('');
+      listEl.querySelectorAll('[data-version-id]').forEach((item) => {
+        const vid = item.dataset.versionId;
+        item.querySelector('[title="Load version"]').addEventListener('click', () => {
+          const v = versions.find(x => String(x.id) === vid);
+          if (v) { window.VEILEditor.setValue(v.sqlText || ''); modal.hidden = true; switchView('analyzer'); runAnalysis(); toast(`Loaded version ${v.version}.`); }
+        });
+        item.querySelector('.version-del').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!confirm('Delete this version?')) return;
+          window.VEILHistoryApi.deleteQuery(vid).then(() => { toast('Version deleted.'); showVersions(id); }).catch(() => toast('Could not delete version.'));
+        });
+      });
+      modal.hidden = false;
+    } catch (error) {
+      toast(`Could not load versions: ${error.message}`);
+    }
+  }
+
+  async function saveHistoryQuery() {
+    const sql = window.VEILEditor.getValue().trim();
+    if (!sql) { toast('Nothing to save — SQL editor is empty.'); return; }
+
+    const modal = $('#savedModal');
+    const nameInput = $('#savedName');
+    const projectSelect = $('#savedProjectSelect');
+    const name = (nameInput?.value || '').trim() || `Query ${new Date().toLocaleTimeString()}`;
+    const projectId = projectSelect && projectSelect.value !== 'default' ? projectSelect.value : null;
+
+    try {
+      const created = await window.VEILHistoryApi.createQuery({
+        name, sqlText: sql, projectId,
+      });
+      currentQueryId = created.id;
+      if (nameInput) nameInput.value = '';
+      if (projectSelect) projectSelect.value = 'default';
+      if (modal) modal.hidden = true;
+      toast(`Query "${created.name}" saved.`);
+      await loadHistoryQueries();
+    } catch (error) {
+      toast(`Could not save query: ${error.message}`);
+    }
+  }
+
+  async function renderSavedProjects() {
+    const sel = $('#savedProjectSelect');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="default">Default Workspace</option>' +
+      projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    sel.value = current;
+  }
+
+  async function renderTagsFilter() {
+    const container = $('#historyTags');
+    if (!container) return;
+    try {
+      const tags = await window.VEILHistoryApi.listTags();
+      container.innerHTML =
+        '<button class="history-tag-filter" data-tag="all">All</button>' +
+        (tags || []).map(t => `<button class="history-tag-filter" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+      container.querySelectorAll('.history-tag-filter').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          historyFilter = btn.dataset.tag === 'all' ? 'all' : `tag:${btn.dataset.tag}`;
+          activeProjectId = null;
+          const projectSelect = $('#projectSelect');
+          if (projectSelect) projectSelect.value = 'default';
+          loadHistoryQueries();
+        });
+      });
+    } catch {
+      container.innerHTML = '<button class="history-tag-filter" data-tag="all">All</button>';
+    }
+  }
+
   async function loadConnections() {
     try {
       savedConnections = await window.VEILApi.getConnections();
@@ -416,7 +668,7 @@
   }
 
   $$('.nav-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
+    item.addEventListener('click', async (e) => {
       e.preventDefault();
       if (window.innerWidth <= 820 && sidebarEl) {
         sidebarEl.classList.remove('open');
@@ -440,7 +692,10 @@
           toast('Schema Explorer opened.');
           break;
         case 'saved':
-          renderSaved();
+          await loadProjects();
+          await loadHistoryQueries();
+          await renderSavedProjects();
+          await renderTagsFilter();
           const savedModal = $('#savedModal');
           if (savedModal) {
             savedModal.hidden = false;
@@ -687,89 +942,10 @@
     };
   }
 
-// ================= SAVED QUERIES =================
-  const SAVED_KEY = 'veil_saved_queries';
-  const DEFAULT_SAVED = [
-    {
-      name: 'Slow Join on Projects',
-      sql: `SELECT q.id, q.query_text, p.name\nFROM queries q\nJOIN projects p ON q.project_id = p.id\nWHERE p.id = 1 AND q.status = 'done'\nORDER BY q.created_at DESC\nLIMIT 5;`,
-      savedAt: Date.now() - 3600000
-    },
-    {
-      name: 'High Latency Query Executions',
-      sql: `SELECT q.id, q.query_text, AVG(e.duration_ms) as avg_duration\nFROM queries q\nJOIN query_executions e ON q.id = e.query_id\nGROUP BY q.id, q.query_text\nHAVING AVG(e.duration_ms) > 250\nORDER BY avg_duration DESC\nLIMIT 10;`,
-      savedAt: Date.now() - 7200000
-    },
-    {
-      name: 'Active Project Member Breakdown',
-      sql: `SELECT p.name, COUNT(u.id) as total_users\nFROM projects p\nLEFT JOIN users u ON u.role = 'Analyst'\nWHERE p.plan_tier = 'enterprise'\nGROUP BY p.name;`,
-      savedAt: Date.now() - 86400000
-    }
-  ];
-
-  function readSaved() {
-    try {
-      const raw = localStorage.getItem(SAVED_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return DEFAULT_SAVED;
-  }
-
-  function writeSaved(list) {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(list));
-  }
-
-  function renderSaved() {
-    const list = readSaved();
-    const listEl = $('#savedList');
-    if (!listEl) return;
-
-    listEl.innerHTML = list.length
-      ? list.map((q, i) => `
-          <li data-saved="${i}">
-            <span>&#9873; <b>${esc(q.name)}</b></span>
-            <span class="meta">${esc(q.sql.replace(/\s+/g, ' ').slice(0, 42))}&hellip;</span>
-            <button class="btn-small" type="button" data-saved-del="${i}">Delete</button>
-          </li>`).join('')
-      : '<li><span>No saved queries yet. Type a query in the editor and save it here.</span></li>';
-
-    $$('[data-saved-del]').forEach((b) => b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const currentList = readSaved();
-      const [removed] = currentList.splice(Number(b.dataset.savedDel), 1);
-      writeSaved(currentList);
-      renderSaved();
-      toast(`Deleted "${removed.name}".`);
-    }));
-
-    $$('[data-saved]').forEach((li) => li.addEventListener('click', () => {
-      const q = readSaved()[Number(li.dataset.saved)];
-      if (!q) return;
-      window.VEILEditor.setValue(q.sql);
-      const savedModal = $('#savedModal');
-      if (savedModal) savedModal.hidden = true;
-      switchView('analyzer');
-      runAnalysis();
-      toast(`Loaded "${q.name}".`);
-    }));
-  }
-
+// ================= SAVED QUERIES (server-side via /api/history) =================
   const saveQueryBtn = $('#saveQueryBtn');
   if (saveQueryBtn) {
-    saveQueryBtn.addEventListener('click', () => {
-      const sql = window.VEILEditor.getValue().trim();
-      if (!sql) { toast('Nothing to save — SQL editor is empty.'); return; }
-
-      const name = ($('#savedName')?.value || '').trim() || `Query ${new Date().toLocaleTimeString()}`;
-      const list = readSaved();
-      list.unshift({ name, sql, savedAt: Date.now() });
-      writeSaved(list);
-
-      const savedNameInput = $('#savedName');
-      if (savedNameInput) savedNameInput.value = '';
-      renderSaved();
-      toast(`Query "${name}" saved.`);
-    });
+    saveQueryBtn.addEventListener('click', saveHistoryQuery);
   }
 
   const cancelSaved = $('#cancelSaved');
@@ -777,6 +953,33 @@
   if (cancelSaved && savedModal) {
     cancelSaved.addEventListener('click', () => { savedModal.hidden = true; });
     savedModal.addEventListener('click', (e) => { if (e.target === savedModal) savedModal.hidden = true; });
+  }
+
+  const versionsModal = $('#versionsModal');
+  const cancelVersions = $('#cancelVersions');
+  if (cancelVersions && versionsModal) {
+    cancelVersions.addEventListener('click', () => { versionsModal.hidden = true; });
+    versionsModal.addEventListener('click', (e) => { if (e.target === versionsModal) versionsModal.hidden = true; });
+  }
+
+  const addProjectBtn = $('#addProjectBtn');
+  if (addProjectBtn) {
+    addProjectBtn.addEventListener('click', async () => {
+      const name = prompt('Workspace name:');
+      if (!name) return;
+      try {
+        await window.VEILHistoryApi.createProject({ name });
+        toast(`Workspace "${name}" created.`);
+        await loadProjects();
+      } catch (error) {
+        toast(`Could not create workspace: ${error.message}`);
+      }
+    });
+  }
+
+  const projectSelect = $('#projectSelect');
+  if (projectSelect) {
+    projectSelect.addEventListener('change', onProjectChanged);
   }
 
 // ================= HEALTH POLLING =================
@@ -922,8 +1125,11 @@
     window.VEILEditor.format();
     toast('SQL Query formatted.');
   });
-  $('#templatesBtn')?.addEventListener('click', () => {
-    renderSaved();
+  $('#templatesBtn')?.addEventListener('click', async () => {
+    await loadProjects();
+    await loadHistoryQueries();
+    await renderSavedProjects();
+    await renderTagsFilter();
     const savedModal = $('#savedModal');
     if (savedModal) savedModal.hidden = false;
   });
@@ -991,6 +1197,7 @@
 // 6. Load Data & Run Initial Analysis
   ensureDiscoverButton();
   loadConnections();
+  loadProjects();
   loadHealth();
   loadSchema();
   runAnalysis();
