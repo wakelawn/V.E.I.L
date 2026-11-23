@@ -118,6 +118,18 @@ public class Lexer {
                 continue;
             }
 
+            // ( and )
+            if (current == '(') {
+                tokens.add(new Token(TokenType.LPAREN, "("));
+                position++;
+                continue;
+            }
+            if (current == ')') {
+                tokens.add(new Token(TokenType.RPAREN, ")"));
+                position++;
+                continue;
+            }
+
             // . (for qualified names like u.id)
             if (current == '.') {
                 tokens.add(new Token(TokenType.DOT, "."));
@@ -184,6 +196,30 @@ public class Lexer {
 
                     case "LIMIT" ->
                         tokens.add(new Token(TokenType.LIMIT, value));
+
+                    case "GROUP" ->
+                        tokens.add(new Token(TokenType.GROUP, value));
+
+                    case "HAVING" ->
+                        tokens.add(new Token(TokenType.HAVING, value));
+
+                    case "DISTINCT" ->
+                        tokens.add(new Token(TokenType.DISTINCT, value));
+
+                    case "COUNT" ->
+                        tokens.add(new Token(TokenType.COUNT, value));
+
+                    case "SUM" ->
+                        tokens.add(new Token(TokenType.SUM, value));
+
+                    case "AVG" ->
+                        tokens.add(new Token(TokenType.AVG, value));
+
+                    case "MIN" ->
+                        tokens.add(new Token(TokenType.MIN, value));
+
+                    case "MAX" ->
+                        tokens.add(new Token(TokenType.MAX, value));
 
                     default ->
                         tokens.add(new Token(TokenType.IDENTIFIER, value));

@@ -64,4 +64,12 @@ public class ApiExceptionHandler {
 	public ResponseEntity<Map<String, String>> onMissing(NoSuchElementException e) {
 		return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
 	}
+
+	// Everything unexpected: 500 with no details. Prevents stack traces,
+	// database error messages or implementation internals from leaking to
+	// the client.
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<Map<String, String>> onUnexpected(Exception e) {
+		return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+	}
 }

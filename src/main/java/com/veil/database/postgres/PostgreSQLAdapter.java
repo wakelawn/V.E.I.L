@@ -21,7 +21,8 @@ public class PostgreSQLAdapter implements DatabaseAdapter {
                     true,  // EXPLAIN support
                     true,  // Index support
                     true,  // Transaction support
-                    true   // Schema inspection
+                    true,  // Schema inspection
+                    true   // Benchmark support
             );
 
     public PostgreSQLAdapter(JdbcTemplate jdbcTemplate) {

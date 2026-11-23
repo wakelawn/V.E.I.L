@@ -64,6 +64,18 @@ class ConnectionRegistryTest {
 	}
 
 	@Test
+	void clearPasswordDropsOnlyTheStoredSecret() {
+
+		SavedConnection saved = registry.save(connection("local"));
+
+		registry.clearPassword(saved.getId());
+
+		assertNull(registry.findById(saved.getId()).getPassword());
+		assertEquals("local", registry.findById(saved.getId()).getName());
+		assertEquals("localhost", registry.findById(saved.getId()).getHost());
+	}
+
+	@Test
 	void viewNeverExposesThePassword() {
 
 		SavedConnection saved = registry.save(connection("local"));

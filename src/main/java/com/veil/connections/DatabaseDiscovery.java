@@ -9,30 +9,35 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
-// Lists databases on a PostgreSQL server for Add Connection modal.
+/**
+ * Lists databases on a PostgreSQL server so the Add Connection dialog can offer
+ * a picker instead of making the user type a name.
+ */
 @Component
 public class DatabaseDiscovery {
 
-    private static final Pattern HOST_PATTERN = Pattern.compile("^[a-zA-Z0-9.-]+$");
+    private final ConnectionTarget target;
+
+    public DatabaseDiscovery(ConnectionTarget target) {
+        this.target = target;
+    }
 
     public List<String> listDatabases(String host, int port,
             String username, String password) {
 
-        validateHost(host);
-        validatePort(port);
+        target.validateHost(host);
+        target.validatePort(port);
 
         SQLException lastFailure = null;
 
-        // postgres is the usual maintenance DB; template1 is the fallback
+        // "postgres" is the usual maintenance database; template1 is the fallback.
         for (String maintenance : List.of("postgres", "template1")) {
 
-            String url = "jdbc:postgresql://" + host + ":" + port
-                    + "/" + maintenance + "?connectTimeout=5";
+            String url = target.jdbcUrl(host, port, maintenance);
 
             try (Connection connection = DriverManager.getConnection(
-                    url, username, password);
+                    url, username, password == null ? "" : password);
                     Statement statement = connection.createStatement();
                     ResultSet result = statement.executeQuery("""
                             SELECT datname
@@ -60,20 +65,5 @@ public class DatabaseDiscovery {
                         + " as " + username
                         + ". Check the host, port and credentials.",
                 lastFailure);
-    }
-
-    private void validateHost(String host) {
-        if (host == null || host.isBlank() || !HOST_PATTERN.matcher(host).matches()) {
-            throw new IllegalArgumentException("Invalid host: must contain only letters, digits, dots, and hyphens");
-        }
-        if (host.length() > 255) {
-            throw new IllegalArgumentException("Host too long (max 255 chars)");
-        }
-    }
-
-    private void validatePort(int port) {
-        if (port < 1 || port > 65535) {
-            throw new IllegalArgumentException("Port must be between 1 and 65535");
-        }
     }
 }

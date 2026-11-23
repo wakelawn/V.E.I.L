@@ -69,6 +69,17 @@ public class ConnectionRegistry {
 		return connections.get(id);
 	}
 
+// Drops the password from the in-memory registry entry. The active pool keeps
+// its own copy; anything that needs to reconnect must ask for it again.
+	public void clearPassword(long id) {
+
+		SavedConnection saved = connections.get(id);
+
+		if (saved != null) {
+			saved.setPassword(null);
+		}
+	}
+
 	public boolean delete(long id) {
 
 		boolean removed = connections.remove(id) != null;

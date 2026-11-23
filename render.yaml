@@ -39,6 +39,11 @@ services:
         value: nvidia/nemotron-3.5-lightning-30b-a3b
       - key: VEIL_CONNECTIONS_FILE
         value: /tmp/veil/connections.json
+      # VEIL's own data (users, projects, saved queries). H2, never the
+      # analysed database. /tmp survives restarts on the same instance but not
+      # redeploys; attach a Render disk and point this at it to keep history.
+      - key: VEIL_METADATA_URL
+        value: jdbc:h2:file:/tmp/veil/metadata;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
 
 databases:
   - name: veil-db

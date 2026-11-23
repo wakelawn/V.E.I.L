@@ -15,6 +15,14 @@ public enum TokenType {
     ASC,
     DESC,
     LIMIT,
+    GROUP,
+    HAVING,
+    DISTINCT,
+    COUNT,
+    SUM,
+    AVG,
+    MIN,
+    MAX,
 
     IDENTIFIER,
     NUMBER,
@@ -30,6 +38,8 @@ public enum TokenType {
     STAR,
     SEMICOLON,
     DOT,
+    LPAREN,
+    RPAREN,
 
     EOF
 }

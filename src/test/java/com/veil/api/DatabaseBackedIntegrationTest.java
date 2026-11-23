@@ -97,7 +97,9 @@ class DatabaseBackedIntegrationTest {
 				.replaceAll(".*\"id\":(\\d+).*", "$1"));
 
 		// 2. re-test the saved connection with its stored password
-		mockMvc.perform(post("/api/connections/" + id + "/test"))
+		mockMvc.perform(post("/api/connections/" + id + "/test")
+						.contentType("application/json")
+						.content("{\"password\":\"" + password + "\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.tested").value(true));
 

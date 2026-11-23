@@ -40,6 +40,12 @@ public class ExplainService {
 
 		String json = executionPlanProvider.getExecutionPlan(query);
 
+		return explainFromJson(json);
+	}
+
+	// Parse EXPLAIN JSON directly (used for ANALYZE)
+	public PlanSummary explainFromJson(String json) {
+
 		try {
 			JsonNode root = objectMapper.readTree(json);
 
@@ -136,6 +142,25 @@ public class ExplainService {
 		summary.setParallelAware(
 				getBoolean(plan, "Parallel Aware"));
 
+		// ========== ACTUAL EXECUTION METRICS (from EXPLAIN ANALYZE) ==========
+		summary.setActualRows(getLong(plan, "Actual Rows"));
+		summary.setActualStartupTime(getDouble(plan, "Actual Startup Time"));
+		summary.setActualTotalTime(getDouble(plan, "Actual Total Time"));
+		summary.setActualLoops(getLong(plan, "Actual Loops"));
+		summary.setRowsRemovedByFilter(getLong(plan, "Rows Removed by Filter"));
+		summary.setSharedHitBlocks(getLong(plan, "Shared Hit Blocks"));
+		summary.setSharedReadBlocks(getLong(plan, "Shared Read Blocks"));
+		summary.setSharedDirtiedBlocks(getLong(plan, "Shared Dirtied Blocks"));
+		summary.setSharedWrittenBlocks(getLong(plan, "Shared Written Blocks"));
+		summary.setLocalHitBlocks(getLong(plan, "Local Hit Blocks"));
+		summary.setLocalReadBlocks(getLong(plan, "Local Read Blocks"));
+		summary.setLocalDirtiedBlocks(getLong(plan, "Local Dirtied Blocks"));
+		summary.setLocalWrittenBlocks(getLong(plan, "Local Written Blocks"));
+		summary.setTempReadBlocks(getLong(plan, "Temp Read Blocks"));
+		summary.setTempWrittenBlocks(getLong(plan, "Temp Written Blocks"));
+		// Planning/Execution time are typically at the root level only
+		// =====================================================================
+
 		// the row filter a scan applies, and the sort keys of a Sort node.
 		// both feed the deeper plan analysis
 		JsonNode filter = plan.get("Filter");
@@ -150,7 +175,7 @@ public class ExplainService {
 			summary.setSortKey(sortKey.get(0).asText());
 		}
 
-		// analyze teh node using the available plan estimates
+		// analyze the node using the available plan estimates
 		summary.setRecommendations(
 				generateRecommendations(plan, summary));
 

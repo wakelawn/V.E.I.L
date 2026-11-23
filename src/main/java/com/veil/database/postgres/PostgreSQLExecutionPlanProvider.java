@@ -32,4 +32,17 @@ public class PostgreSQLExecutionPlanProvider
                 String.class
         );
     }
+
+    @Override
+    public String getExecutionPlanAnalyze(String sql) {
+
+        // Safety: enforce statement timeout and read-only transaction
+        // The caller must ensure the connection is configured appropriately
+        String explainAnalyzeSql = "EXPLAIN (ANALYZE, FORMAT JSON, BUFFERS, TIMING) " + sql;
+
+        return jdbcTemplate.queryForObject(
+                explainAnalyzeSql,
+                String.class
+        );
+    }
 }
