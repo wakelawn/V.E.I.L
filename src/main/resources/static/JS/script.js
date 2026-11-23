@@ -353,7 +353,8 @@
         btn.addEventListener('click', () => {
           historyFilter = btn.dataset.tag === 'all' ? 'all' : `tag:${btn.dataset.tag}`;
           activeProjectId = null;
-          $('#projectSelect')?.value = 'default';
+          const projectSelect = $('#projectSelect');
+          if (projectSelect) projectSelect.value = 'default';
           loadHistoryQueries();
         });
       });
@@ -667,7 +668,7 @@
   }
 
   $$('.nav-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
+    item.addEventListener('click', async (e) => {
       e.preventDefault();
       if (window.innerWidth <= 820 && sidebarEl) {
         sidebarEl.classList.remove('open');
