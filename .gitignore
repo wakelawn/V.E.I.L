@@ -87,3 +87,22 @@ index-analysis.md
 connections-api.md
 integration-tests.md
 
+# Temporary and generated files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.#*
+*.orig
+*.rej
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated presentation artifact (repo root)
+VEIL_Presentation.pdf
+
