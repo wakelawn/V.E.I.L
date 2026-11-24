@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY pom.xml ./
 COPY src ./src
+COPY settings.xml /root/.m2/settings.xml
 RUN mvn -B -q package -DskipTests
 
 # Runtime stage: JRE only, non-root user
