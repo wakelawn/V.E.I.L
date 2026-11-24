@@ -538,8 +538,9 @@
       window.VEILEditor.showError(e.message);
     } finally {
       if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = originalText;
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzed';
+        analyzeBtn.classList.add('btn-analyzed');
       }
     }
   }
