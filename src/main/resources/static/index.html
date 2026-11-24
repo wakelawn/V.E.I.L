@@ -73,18 +73,6 @@
                             </span>
                         </div>
                     </div>
-
-                    <!-- Workspace / Project selector -->
-                    <div class="conn-field">
-                        <label for="projectSelect">Workspace</label>
-                        <div class="conn-select-wrap">
-                            <select id="projectSelect">
-                                <option value="default">Default Workspace</option>
-                            </select>
-                            <button class="btn ghost btn-small" id="addProjectBtn" type="button" title="Create a new workspace">+</button>
-                        </div>
-                    </div>
-
                     <button class="btn primary btn-conn-add" id="addConnBtn" type="button">+ Add Connection</button>
                 </div>
 
@@ -590,44 +578,17 @@ LIMIT 5;</textarea>
         </div>
     </div>
 
-    <!-- Saved Queries & Workspaces Modal -->
+    <!-- Saved Queries Modal -->
     <div class="modal" id="savedModal" hidden>
-        <div class="modal-box" style="width: min(620px, 96vw); max-height: 85vh; display: flex; flex-direction: column;">
-            <h2 style="margin-top:0">Saved Queries & Workspaces</h2>
-            <p class="modal-desc">Save queries server-side, organize them into workspaces, tag them, and keep version history.</p>
-
-            <!-- Filters -->
-            <div style="display:flex;gap:8px;align-items:center;margin:10px 0;border-bottom:1px solid var(--color-border);padding-bottom:8px;">
-                <div id="historyTags" style="display:flex;gap:4px;overflow-x:auto;"></div>
-                <label style="font-size:11px;font-weight:600;color:var(--color-text-muted);margin-left:auto;">Workspace</label>
-                <select id="savedProjectSelect" style="padding:4px 8px;font-size:11px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-surface);">
-                    <option value="default">Default Workspace</option>
-                </select>
-            </div>
-
-            <label style="font-size:11px;font-weight:600;color:var(--color-text-muted);">Query Name
-                <input id="savedName" placeholder="e.g. Slow join on projects table" autocomplete="off" style="width:100%;padding:6px 10px;border:1px solid var(--color-border);border-radius:4px;background:var(--color-surface);color:var(--color-text);font-size:12px;box-sizing:border-box;margin-top:3px;"></label>
-
-            <div style="flex:1;overflow-y:auto;margin-top:10px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);">
-                <ul class="list saved-list" id="savedList" style="list-style:none;margin:0;padding:0;"></ul>
-            </div>
-
-            <div class="modal-actions" style="margin-top:10px;">
+        <div class="modal-box">
+            <h2>Saved Queries</h2>
+            <p class="modal-desc">Save the active SQL query or select a saved query to load it into the editor.</p>
+            <label>Query Name <input id="savedName" placeholder="e.g. Slow join on projects table" autocomplete="off"></label>
+            <div class="modal-actions">
                 <button class="btn ghost" id="cancelSaved" type="button">Cancel</button>
                 <button class="btn primary" id="saveQueryBtn" type="button">Save Current Query</button>
             </div>
-        </div>
-    </div>
-
-    <!-- Query Versions Modal -->
-    <div class="modal" id="versionsModal" hidden>
-        <div class="modal-box" style="width: min(560px, 94vw);">
-            <h2 style="margin-top:0">Query Versions</h2>
-            <p class="modal-desc">Select a version to load it into the editor.</p>
-            <ul class="list" id="versionsList" style="list-style:none;margin:0;padding:0;"></ul>
-            <div class="modal-actions" style="margin-top:12px;">
-                <button class="btn ghost" id="cancelVersions" type="button">Close</button>
-            </div>
+            <ul class="list saved-list" id="savedList"></ul>
         </div>
     </div>
 
@@ -643,7 +604,6 @@ LIMIT 5;</textarea>
         }
     </script>
     <script src="JS/api.js"></script>
-    <script src="JS/api/history.js"></script>
     <script src="JS/aiClient.js"></script>
     <script src="JS/editor.js"></script>
     <script src="JS/optimizer.js"></script>
